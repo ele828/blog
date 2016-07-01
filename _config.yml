@@ -73,6 +73,10 @@ archive_generator:
     monthly: false
     daily: false
 
+medium_image_plugin:
+    image_path: 'img'
+    max_width: 680 
+
 # Deployment
 ## Docs: https://hexo.io/docs/deployment.html
 deploy:
