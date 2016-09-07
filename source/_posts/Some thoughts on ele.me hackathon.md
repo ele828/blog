@@ -18,7 +18,7 @@ languages Python, Java or Golang and they provide a small cluster consists of 3 
 the benchmark score as high as possible in condition of passing all unit tests.
 
 After discussing, we finally decided to implement it by Java which is high performance and high concurrency. Because of time limited, we chose ``Jetty`` to deal with HTTP
-requests. And then we built up different layers such as Model, Action, Service and Storage. It looks well origanized and pretty nice, but unfortunately, we struggled to pass all the test cases, only to find that we just got about ``40+`` s/per order of benchmark in local machine.
+requests. And then we built up different layers such as Model, Action, Service and Storage. It looks well origanized and pretty nice, but unfortunately, we struggled to pass all the test cases, only to find that we just got about ``40+`` per order/s of benchmark in local machine.
 
 # Hardship
 During contest, my teammate Zhi Wang flied to New York for a conference only left me doing the coding.
@@ -33,17 +33,17 @@ However, the way how we define the storage structure in Redis influence a lot. I
 # Final Struggle
 We had tried almost every methods we know to improve it. One day of the last days, Zhi Wang suddenly sent me a link, which is a example of high concurrency server by ``Redis``and built-in ``Lua``. We were all excited, "This must be definitely right solution". It was just five days left, and we quickly finished ``Lua`` script and built it into ``Golang``. When we had done, we found it doesn't pass the test cases because of ``data consistency``, is there ``data race`` happens or something wrong in our code? Redis's lua runs in serial ways which is not expected to perform in that way. We can't solve it even in the last day. 
 
-But it just happened intermittently, luckily, we got ``300+`` per order/s in local machine which is what we were expected. But because of request failure, we finally couldn't catch up with top 20. After that, we found the solution we choose was almost the same of the official implementation.
+But it just happened intermittently, luckily, we got ``300+`` per order/s in local machine which is what we were expected. But because of request failure, we finally couldn't catch up with top 20. After that, we found the solution we choose was almost the same to the official implementation.
 
 # Introspection
-After contest, we discussed the failure of requests failure. In request handler, we run a ``goroutine`` each request, which is quite a lot expense.
+After contest, we discussed the reason of requests failure. In request handler, we run a ``goroutine`` each request, which is quite a lot expense.
 In concurrent system, we thought,
 
-* We should design a ``Request Queue`` to ``Enqueue`` each request and ``Dequeue`` to process every request later on instead of hanlding instantly.
-* ``Cache`` will do benefit to system performance but we should make some efforts to design it.
-* ``Consistency`` is very improtant in distributed system or we will get error in procedure.
+* We should design a ``Request Queue`` to ``Enqueue`` each request and ``Dequeue`` to process every request later on instead of handling instantly.
+* ``Cache`` will do benefit to system performance, which however we should make some efforts to design.
+* ``Consistency`` is very improtant in distributed system, otherwise we'll get unexpected error.
 
 That's it, althought we didn't got prize in this contest finally, we learnt a lot about ``High Concurrency`` and ``Distributed System``, that's what we want to do and steep in.
 
 
-[=>Open source code ](https://github.com/ele828/eleme-hackathon)
+[=> Open source code ](https://github.com/ele828/eleme-hackathon)

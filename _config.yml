@@ -63,7 +63,7 @@ pagination_dir: page
 # Extensions
 ## Plugins: https://hexo.io/plugins/
 ## Themes: https://hexo.io/themes/
-theme: fexo
+theme: typing
 
 # 在归档页面显示所有文章
 # 需要 hexo-generator-archive 插件支持
@@ -73,9 +73,9 @@ archive_generator:
   monthly: false
   daily: false
 
-medium_image_plugin:
-  image_path: 'img'
-  max_width: 760 
+# medium_image_plugin:
+#   image_path: 'img'
+#   max_width: 760 
 
 prism_plugin:
   mode: 'preprocess'    # realtime/preprocess
