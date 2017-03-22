@@ -25,7 +25,7 @@ from: http://tadeuzagallo.com/blog/react-native-bridge/
 
 下面是一个**Person**模块，实现了JS调用本地模块的交互过程。
 
-```obj-c
+```objectivec
 @interface Person : NSObject <RCTBridgeModule>
 @end
 	
@@ -49,7 +49,7 @@ RCT_EXPORT_METHOD(greet:(NSString *)name)
 顾名思义，这个宏会导出你的模块，但在特定的环境中，``导出``的具体含义是什么？这里的意思是把你的模块暴露给React中的``Bridge``。
 它的实现也相当简单：
 
-```obj-c
+```objectivec
  #define RCT_EXPORT_MODULE(js_name) \
  
   RCT_EXTERN void RCTRegisterModule(Class); \
@@ -71,7 +71,7 @@ RCT_EXPORT_METHOD(greet:(NSString *)name)
 
 这个新的方法看起来像下面的例子一样：
 
-```obj-c
+```objectivec
 + (NSArray *)__rct_export__120
 {
   return @[ @"", @"log:(NSString *)message" ];
@@ -95,7 +95,7 @@ RCT_EXPORT_METHOD(greet:(NSString *)name)
 
 ``RCTRegisterModule ``方法所做的事情就是把类添加到一个数组中，后面如果创建新的``bridge``实例，就可以直接找到这个类了。下面，程序遍历模块数组并为每一个模块创建实例对象，然后把``bridge``的引用赋值给模块，再把对象引用储存到``bridge``中（实现相互调用），最后检查模块是否有指定运行的队列，如果没有则为其创建一个新的队列，从其他模块中隔离开来。
 
-```obj-c
+```objectivec
 NSMutableDictionary *modulesByName; // = ...
 for (Class moduleClass in RCTGetModuleClasses()) {
   // ...
@@ -110,7 +110,7 @@ for (Class moduleClass in RCTGetModuleClasses()) {
 ### 配置模块
 一旦我们在后台线程运行了模块，就可以列出并且调用该模块的所有以``__rct_export__ ``开头的方法，也可以得到方法签名的字符串表示。这是非常重要的，这样一来，我们就知道了参数实际的类型。比如，在运行时我们只能知道参数的名称是``id``,但通过这种方式就可以知道参数的类型是``NSString *``了。
 
-```obj-c
+```objectivec
 unsigned int methodCount;
 Method *methods = class_copyMethodList(moduleClass, &methodCount);
 for (unsigned int i = 0; i < methodCount; i++) {
@@ -127,7 +127,7 @@ for (unsigned int i = 0; i < methodCount; i++) {
 ### 安装JavaScript Executor
 ``JavaScript Executors``有一个``-setUp``方法，允许其来做一些昂贵的工作，例如在后台线程初始化一个``JavaScriptCore ``。同时，它也省去了一些不必要的工作，比如，只有激活状态下的``executor``才会收到``setUp``的调用指令，而不是所有的``excutor``都会收到指令。
 
-```obj-c
+```objectivec
 JSGlobalContextRef ctx = JSGlobalContextCreate(NULL);
 _context = [[RCTJavaScriptContext alloc] initWithJSContext:ctx];
 ```
@@ -159,7 +159,7 @@ JSON配置仅仅包含自己模块的信息，如下：
 ### 执行JavaScript代码
 一切准备就绪，程序就可以加载JavaScriptCore虚拟机中的应用源码，拷贝、解析、执行代码。首次执行需要注册所有CommanJS模块，指明入口文件。
 
-```obj-c
+```objectivec
 JSValueRef jsError = NULL;
 JSStringRef execJSString = JSStringCreateWithCFString((__bridge
       CFStringRef)script);
@@ -202,7 +202,7 @@ Person.greet('Tadeu');
 
 下面是一个例子：
 
-```obj-c
+```objectivec
 // If you had the following method in a given module, e.g. `MyModule`
 RCT_EXPORT_METHOD(methodWithArray:(NSArray *) size:(CGRect)size) {}
 
