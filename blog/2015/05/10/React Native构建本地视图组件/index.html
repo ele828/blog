@@ -1,0 +1,180 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Eric's Blog</title><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/img/favicon.png"><link href="/css/font-awesome.min.css" rel="stylesheet"><link href="/css/bootstrap.min.css" rel="stylesheet"><link href="/css/reset.css" rel="stylesheet"><link href="/css/main.css" rel="stylesheet"><script>(function(b,o,i,l,e,r){b.GoogleAnalyticsObject=l;b[l]||(b[l]=function(){(b[l].q=b[l].q||[]).push(arguments)});b[l].l=+new Date;e=o.createElement(i);r=o.getElementsByTagName(i)[0];e.src='//www.google-analytics.com/analytics.js';r.parentNode.insertBefore(e,r)}(window,document,'script','ga'));ga('create',"UA-79167899-1",'auto');ga('send','pageview');</script><link rel="stylesheet" href="/css/prism.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head><body><div class="wrap"><nav class="page-navigation"><div class="nav-container"><div class="page-header-logo"><h1 class="prince-log"><a href="/" class="home-link">ERIC HUANG</a></h1></div><button type="button" data-toggle="collapse" data-target=".main-nav-items" class="navbar-toggle"><span class="sr-only">Toggle navigation</span><span class="icon-bar"></span><span class="icon-bar"></span><span class="icon-bar"></span></button><ul class="collapse navbar-collapse main-nav-items"><li class="menu-item"><a href="/" target="_self">ARCHIVE</a></li><li class="menu-item"><a href="/gallery/" target="_self">GALLERY</a></li><li class="menu-item"><a href="/about/" target="_self">ABOUT</a></li></ul></div></nav><main class="prince-container"><div class="header"><div><h1 class="post-title">React Native构建本地视图组件</h1><div class="post-info">May 10th 2015</div></div></div><div class="post"><article class="post-block"><div class="post-entry"><p>在使用React Native开发App的过程中，我们可能需要调用RN没有实现的原生视图组件或第三方组件。甚至，我们可以把本地模块构造成一个React Native组件，提供给别人使用。由于我自己开发中遇到了这样的问题，于是通过查看源码和一些资料总结出了构建的一个流程。</p>
+<a id="more"></a>
+<p>如果是调用本地的Api，那么可以直接使用<code>RCTBridgeModule</code>进行访问，目前已经实现了对Swift的支持，详见文档(<a href="http://wiki.jikexueyuan.com/project/react-native/native-modules.html" target="_blank" rel="noopener">中文</a>，<a href="http://facebook.github.io/react-native/docs/nativemodulesios.html#content" target="_blank" rel="noopener">英文(较新)</a>)。我们这里讲的是如何进行本地视图组件的封装。下面进入正题：</p>
+<p>要构建本地组件，我们要继承<code>RCTViewManager</code>这个类，以及使用JavaScript进行接口封装。为了不增加教程的篇幅，我们以简单的Swich组件为例。</p>
+<p>首先，我们需要使用obj-c或者swift封装好组件的接口。</p>
+<pre class="line-numbers language-obj-c"><code class="language-obj-c">#import <UIKit/UIKit.h>
+@interface RCTSwitch : UISwitch    //继承UISwitch
+@property (nonatomic, assign) BOOL wasOn;
+@end
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+<p>然后实现</p>
+<pre class="line-numbers language-obj-c"><code class="language-obj-c">#import "RCTSwitch.h"
+#import "RCTEventDispatcher.h"
+#import "UIView+React.h"
+
+@implementation RCTSwitch
+- (void)setOn:(BOOL)on animated:(BOOL)animated {
+  _wasOn = on;
+  [super setOn:on animated:animated];
+}
+@end
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h3 id="RCTSwitchManager-h"><a href="#RCTSwitchManager-h" class="headerlink" title="RCTSwitchManager.h"></a>RCTSwitchManager.h</h3><pre class="line-numbers language-obj-c"><code class="language-obj-c">#import "RCTViewManager.h"
+@interface RCTSwitchManager : RCTViewManager
+@end
+
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+<p>这是一个视图管理器的头文件，命名规范为 视图名称+Manager. 视图名称可以加上自己的前缀，这里最好避免使用RCT前缀，除非你想给官方pull request.</p>
+<pre class="line-numbers language-obj-c"><code class="language-obj-c">#import "RCTSwitchManager.h"    // 首先导入头文件
+#import "RCTBridge.h"    //进行通信的头文件
+#import "RCTEventDispatcher.h"    //事件派发，不导入会引起Xcode警告
+#import "RCTSwitch.h"    //第三方组件的头文件
+#import "UIView+React.h"    //若使用React封装的UIView(例如reactTag)
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>下面是实现的部分：</p>
+<pre class="line-numbers language-obj-c"><code class="language-obj-c">@implementation RCTSwitchManager
+
+RCT_EXPORT_MODULE()
+
+- (UIView *)view
+{
+  RCTSwitch *switcher = [[RCTSwitch alloc] init];
+  [switcher addTarget:self
+               action:@selector(onChange:)
+     forControlEvents:UIControlEventValueChanged];
+  return switcher;
+}
+
+- (void)onChange:(RCTSwitch *)sender
+{
+  if (sender.wasOn != sender.on) {
+    [self.bridge.eventDispatcher sendInputEventWithName:@"topChange" body:@{
+       @"target": sender.reactTag,
+       @"value": @(sender.on)
+     }];
+
+    sender.wasOn = sender.on;
+  }
+}
+
+RCT_EXPORT_VIEW_PROPERTY(onTintColor, UIColor);
+RCT_EXPORT_VIEW_PROPERTY(tintColor, UIColor);
+RCT_EXPORT_VIEW_PROPERTY(thumbTintColor, UIColor);
+RCT_EXPORT_VIEW_PROPERTY(on, BOOL);
+RCT_EXPORT_VIEW_PROPERTY(enabled, BOOL);
+
+@end
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>这里首先调用<code>ECT_EXPORT_MODULE()</code>的宏，让模块接口暴露给JavaScript，然后我们必须定义<code>- (UIView *)view</code> 这个方法来创建并返回组件视图，同时我们对视图事件进行监听。<br>紧接着我们实现了<code>- (void)onChange:(RCTSwitch *)sender</code>这个处理回调，<code>target</code>就是视图组件的一个实例，最后我们通过事件派发器的<code>sendInputEventWithName</code>方法来包装事件，其中”topChange”映射到UIManager中的<code>onChange</code>事件，也对应到我们组件的<code>onChange</code>属性详见<strong>./React/Modules/RCTUIManager.m</strong>文件。</p>
+<pre class="line-numbers language-obj-c"><code class="language-obj-c">@"topChange": @{
+      @"phasedRegistrationNames": @{
+        @"bubbled": @"onChange",
+        @"captured": @"onChangeCapture"
+      }
+}
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>文件的最后的<code>RCT_EXPORT_VIEW_PROPERTY()</code>这个宏来设置该组件接受的参数及其类型。js中没有的类型，将会被自动类型转换。</p>
+<p>下面使用JavaScript对本地组件进行封装，</p>
+<pre class="line-numbers language-js"><code class="language-js"><span class="token string">'use strict'</span><span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">// 导入本地方法的封装</span>
+<span class="token keyword">var</span> NativeMethodsMixin <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'NativeMethodsMixin'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token comment" spellcheck="true">// React属性的类型系统</span>
+<span class="token keyword">var</span> PropTypes <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'ReactPropTypes'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token comment" spellcheck="true">// 导入React</span>
+<span class="token keyword">var</span> React <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'React'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token comment" spellcheck="true">// 视图属性</span>
+<span class="token keyword">var</span> ReactIOSViewAttributes <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'ReactIOSViewAttributes'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token comment" spellcheck="true">// 样式</span>
+<span class="token keyword">var</span> StyleSheet <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'StyleSheet'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token comment" spellcheck="true">// 使用该方法生成本地组件</span>
+<span class="token keyword">var</span> createReactIOSNativeComponentClass <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'createReactIOSNativeComponentClass'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token comment" spellcheck="true">// 使用该方法进行视图属性的合并</span>
+<span class="token keyword">var</span> merge <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'merge'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>紧接着，我们通过<code>createReactIOSNativeComponentClass</code>创建RCTSwitch类。</p>
+<pre class="line-numbers language-js"><code class="language-js"><span class="token keyword">var</span> RCTSwitch <span class="token operator">=</span> <span class="token function">createReactIOSNativeComponentClass</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+  <span class="token comment" spellcheck="true">// 指定有效的属性</span>
+  validAttributes<span class="token punctuation">:</span> rkSwitchAttributes<span class="token punctuation">,</span>
+  <span class="token comment" spellcheck="true">// 类名，与RCTSwitchManager相对应</span>
+  uiViewClassName<span class="token punctuation">:</span> <span class="token string">'RCTSwitch'</span><span class="token punctuation">,</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">// 暴露该组件的相关属性，使用merge方法合并了UIView中的所有属性</span>
+<span class="token keyword">var</span> rkSwitchAttributes <span class="token operator">=</span> <span class="token function">merge</span><span class="token punctuation">(</span>ReactIOSViewAttributes<span class="token punctuation">.</span>UIView<span class="token punctuation">,</span> <span class="token punctuation">{</span>
+  onTintColor<span class="token punctuation">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+  tintColor<span class="token punctuation">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+  thumbTintColor<span class="token punctuation">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+  on<span class="token punctuation">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+  enabled<span class="token punctuation">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p><code>validAttributes</code>中的属性对应的值若类型为number, boolean, string类型时，设置为true即可。复杂的数据类型，我们应使用 differ 函数。</p>
+<p>最后我们来创建组件类，这里先声明一些数据类型</p>
+<pre class="line-numbers language-js"><code class="language-js"><span class="token keyword">var</span> SWITCH <span class="token operator">=</span> <span class="token string">'switch'</span><span class="token punctuation">;</span>
+type DefaultProps <span class="token operator">=</span> <span class="token punctuation">{</span>
+  value<span class="token punctuation">:</span> boolean<span class="token punctuation">;</span>
+  disabled<span class="token punctuation">:</span> boolean<span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">;</span>
+type Event <span class="token operator">=</span> Object<span class="token punctuation">;</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>下面是类方法的抽象</p>
+<pre class="line-numbers language-js"><code class="language-js"><span class="token keyword">var</span> SwitchIOS <span class="token operator">=</span> React<span class="token punctuation">.</span><span class="token function">createClass</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+  <span class="token comment" spellcheck="true">//导入本地方法</span>
+  mixins<span class="token punctuation">:</span> <span class="token punctuation">[</span>NativeMethodsMixin<span class="token punctuation">]</span><span class="token punctuation">,</span>
+  <span class="token comment" spellcheck="true">//设置prop类型，保证组件能够被正确使用</span>
+  propTypes<span class="token punctuation">:</span> <span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+  <span class="token comment" spellcheck="true">//定义默认的props</span>
+  <span class="token function">getDefaultProps</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+  <span class="token function">_onChange</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+  <span class="token function">render</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">{</span><span class="token punctuation">}</span>
+<span class="token punctuation">}</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>在类中应该进行<code>prop</code>的类型和默认值的声明，当使用不当时，将会出错警告，这也保证程序的健壮性，类型详见 <a href="https://facebook.github.io/react/docs/reusable-components.html" target="_blank" rel="noopener">官方文档</a>。下面是具体的实现：</p>
+<pre class="line-numbers language-js"><code class="language-js">mixins<span class="token punctuation">:</span> <span class="token punctuation">[</span>NativeMethodsMixin<span class="token punctuation">]</span><span class="token punctuation">,</span>
+  propTypes<span class="token punctuation">:</span> <span class="token punctuation">{</span>
+    value<span class="token punctuation">:</span> PropTypes<span class="token punctuation">.</span>bool<span class="token punctuation">,</span>
+    disabled<span class="token punctuation">:</span> PropTypes<span class="token punctuation">.</span>bool<span class="token punctuation">,</span>
+    onValueChange<span class="token punctuation">:</span> PropTypes<span class="token punctuation">.</span>func<span class="token punctuation">,</span>
+    onTintColor<span class="token punctuation">:</span> PropTypes<span class="token punctuation">.</span>string<span class="token punctuation">,</span>
+    thumbTintColor<span class="token punctuation">:</span> PropTypes<span class="token punctuation">.</span>string<span class="token punctuation">,</span>
+    tintColor<span class="token punctuation">:</span> PropTypes<span class="token punctuation">.</span>string<span class="token punctuation">,</span>
+  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+  getDefaultProps<span class="token punctuation">:</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span> DefaultProps <span class="token punctuation">{</span>
+    <span class="token keyword">return</span> <span class="token punctuation">{</span>
+      value<span class="token punctuation">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+      disabled<span class="token punctuation">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+    <span class="token punctuation">}</span><span class="token punctuation">;</span>
+  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<pre class="line-numbers language-js"><code class="language-js">_onChange<span class="token punctuation">:</span> <span class="token keyword">function</span><span class="token punctuation">(</span>event<span class="token punctuation">:</span> Event<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token comment" spellcheck="true">//通过event.nativeEvent传递本地事件给视图组件，这些事件是我们前面定义在obj-c中的</span>
+    <span class="token keyword">this</span><span class="token punctuation">.</span>props<span class="token punctuation">.</span>onChange <span class="token operator">&amp;&amp;</span> <span class="token keyword">this</span><span class="token punctuation">.</span>props<span class="token punctuation">.</span><span class="token function">onChange</span><span class="token punctuation">(</span>event<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">this</span><span class="token punctuation">.</span>props<span class="token punctuation">.</span>onValueChange <span class="token operator">&amp;&amp;</span> <span class="token keyword">this</span><span class="token punctuation">.</span>props<span class="token punctuation">.</span><span class="token function">onValueChange</span><span class="token punctuation">(</span>event<span class="token punctuation">.</span>nativeEvent<span class="token punctuation">.</span>value<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token comment" spellcheck="true">// 保证属性的值确实被改变</span>
+    <span class="token keyword">this</span><span class="token punctuation">.</span>refs<span class="token punctuation">[</span>SWITCH<span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">setNativeProps</span><span class="token punctuation">(</span><span class="token punctuation">{</span>on<span class="token punctuation">:</span> <span class="token keyword">this</span><span class="token punctuation">.</span>props<span class="token punctuation">.</span>value<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+
+  render<span class="token punctuation">:</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">return</span> <span class="token punctuation">(</span>
+      <span class="token operator">&lt;</span>RCTSwitch
+        <span class="token comment" spellcheck="true">// 来自ReactIOSViewAttributes.UIView的属性</span>
+        ref<span class="token operator">=</span><span class="token punctuation">{</span>SWITCH<span class="token punctuation">}</span>
+        style<span class="token operator">=</span><span class="token punctuation">{</span><span class="token punctuation">[</span>styles<span class="token punctuation">.</span>rkSwitch<span class="token punctuation">,</span> <span class="token keyword">this</span><span class="token punctuation">.</span>props<span class="token punctuation">.</span>style<span class="token punctuation">]</span><span class="token punctuation">}</span>
+        <span class="token comment" spellcheck="true">// 来自RCTSwitchManager.m中导出的属性</span>
+        enabled<span class="token operator">=</span><span class="token punctuation">{</span><span class="token operator">!</span><span class="token keyword">this</span><span class="token punctuation">.</span>props<span class="token punctuation">.</span>disabled<span class="token punctuation">}</span>
+        on<span class="token operator">=</span><span class="token punctuation">{</span><span class="token keyword">this</span><span class="token punctuation">.</span>props<span class="token punctuation">.</span>value<span class="token punctuation">}</span>
+        onTintColor<span class="token operator">=</span><span class="token punctuation">{</span><span class="token keyword">this</span><span class="token punctuation">.</span>props<span class="token punctuation">.</span>onTintColor<span class="token punctuation">}</span>
+        thumbTintColor<span class="token operator">=</span><span class="token punctuation">{</span><span class="token keyword">this</span><span class="token punctuation">.</span>props<span class="token punctuation">.</span>thumbTintColor<span class="token punctuation">}</span>
+        tintColor<span class="token operator">=</span><span class="token punctuation">{</span><span class="token keyword">this</span><span class="token punctuation">.</span>props<span class="token punctuation">.</span>tintColor<span class="token punctuation">}</span>
+        <span class="token comment" spellcheck="true">// RCTSwitchManager.m中导出的方法</span>
+        onChange<span class="token operator">=</span><span class="token punctuation">{</span><span class="token keyword">this</span><span class="token punctuation">.</span>_onChange<span class="token punctuation">}</span>
+      <span class="token operator">/</span><span class="token operator">></span>
+    <span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">}</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>到此，我们就把RCTSwitch组件封装好了。如果要做成第三方组件，我们还需要把本地代码打包成静态库和xocdeproj文件。</p>
+</div></article></div><div class="post-nav"><div class="prev-wrap col-md-6 col-xs-6"><i class="fa fa-angle-double-left"></i><a href="/blog/2015/09/25/阿里巴巴前端开发实习总结/" class="prev-post">阿里巴巴前端开发实习总结</a></div><div class="next-wrap col-md-6 col-xs-6"><a href="/blog/2015/04/22/JavaScript语言精粹阅读笔记(函数)/" class="next-post">JavaScript语言精粹阅读笔记(函数)</a><i class="fa fa-angle-double-right"></i></div></div></main></div><footer><div class="copyright"><p>Crafted with <i class="fa fa-heart"></i> by&nbsp;ERIC HUANG&nbsp;|&nbsp;<a href="http://hexo.io/" target="_blank">Hexo</a> Theme <a href="https://github.com/yiliashaw/hexo-theme-prince" target="_blank">Prince</a></p></div></footer><script src="/js/jquery-3.2.1.min.js"></script><script src="/js/bootstrap.min.js"></script><link href="/fancybox/jquery.fancybox.min.css" rel="stylesheet"><script src="/fancybox/jquery.fancybox.min.js"></script><script src="/js/script.js"></script><script src="/js/gist-embed.min.js"></script></body></html>

@@ -1,0 +1,47 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Eric's Blog</title><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/img/favicon.png"><link href="/css/font-awesome.min.css" rel="stylesheet"><link href="/css/bootstrap.min.css" rel="stylesheet"><link href="/css/reset.css" rel="stylesheet"><link href="/css/main.css" rel="stylesheet"><script>(function(b,o,i,l,e,r){b.GoogleAnalyticsObject=l;b[l]||(b[l]=function(){(b[l].q=b[l].q||[]).push(arguments)});b[l].l=+new Date;e=o.createElement(i);r=o.getElementsByTagName(i)[0];e.src='//www.google-analytics.com/analytics.js';r.parentNode.insertBefore(e,r)}(window,document,'script','ga'));ga('create',"UA-79167899-1",'auto');ga('send','pageview');</script><link rel="stylesheet" href="/css/prism.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head><body><div class="wrap"><nav class="page-navigation"><div class="nav-container"><div class="page-header-logo"><h1 class="prince-log"><a href="/" class="home-link">ERIC HUANG</a></h1></div><button type="button" data-toggle="collapse" data-target=".main-nav-items" class="navbar-toggle"><span class="sr-only">Toggle navigation</span><span class="icon-bar"></span><span class="icon-bar"></span><span class="icon-bar"></span></button><ul class="collapse navbar-collapse main-nav-items"><li class="menu-item"><a href="/" target="_self">ARCHIVE</a></li><li class="menu-item"><a href="/gallery/" target="_self">GALLERY</a></li><li class="menu-item"><a href="/about/" target="_self">ABOUT</a></li></ul></div></nav><main class="prince-container"><div class="header"><div><h1 class="post-title">使用React Native一年后的感受</h1><div class="post-info">Jun 12th 2016</div></div></div><div class="post"><article class="post-block"><div class="post-entry"><p>当我在面试<a href="https://discordapp.com/" target="_blank" rel="noopener">Discord</a>的时候，技术主管Stanislav跟我说：</p>
+<blockquote>
+<p><a href="https://facebook.github.io/react-native/" target="_blank" rel="noopener">React Native</a>代表着未来。等它一发布，我们就会用它从零构建iOS应用。</p>
+</blockquote>
+<p>作为一名原生iOS开发者，基于先前使用PhoneGap的经验，我非常怀疑使用Web技术构建移动应用的这种方式。但是当我学习并使用React Native一段时间之后，我非常庆幸我们做了这个决定。</p>
+<a id="more"></a>
+<h2 id="开发效率"><a href="#开发效率" class="headerlink" title="开发效率"></a>开发效率</h2><p>虽然iOS“团队”只有我自己一个人，但是iOS应用开发依然可以赶上Web和桌面应用开发闪电般的速度。Apple公司已经允许开发者使用<code>JavaScriptCore</code>进行应用的升级，而无需等待App Store的审核流程。这对于那些缺乏专业的iOS QA（质量保障）团队的小公司来说是非常便利的，因为iOS团队可以在发布新功能之后进行热更新。</p>
+<p>使用React Native一年之后，我们的iOS开发周期明显变快了，这得益于很高的开发效率。比如：</p>
+<ul>
+<li><p>基于现有的前端架构，我们在两周之内就发布了V1.0的版本。</p>
+</li>
+<li><p>相比于<code>Auto Layout</code>，基于<a href="https://css-tricks.com/snippets/css/a-guide-to-flexbox/" target="_blank" rel="noopener">Flexbox</a>的样式可以节省一半的代码，并且更容易理解。</p>
+</li>
+<li><p>使用Flux设计模式，iOS和Web应用共享了<code>store</code>和<code>action</code>的98%的代码。</p>
+</li>
+</ul>
+<h2 id="性能"><a href="#性能" class="headerlink" title="性能"></a>性能</h2><p>React Native在后台线程运行JavaScript并发送极小的代码到主线程中。事实证明，React Native相比于Objective-C或Swift编写的原生iOS应用来说有一些性能差异！</p>
+<p><img src="/img/discord-perf.gif" alt=""></p>
+<blockquote>
+<p>Reactiflux小组的性能演示，该组有超过1.1万个会员 —— UI和JS线程大多数都是60FPS</p>
+</blockquote>
+<p>然而，我们当初开始构建iOS应用时发现<strong>聊天滚动视图</strong>的性能并不令人满意，尤其是一些活跃的聊天分组。于是，我们决定使用<a href="http://componentkit.org/" target="_blank" rel="noopener">ComponentKit</a>构建聊天视图并编写必要的桥接代码代替原有的方案。当JS线程在完成一些繁重任务的时候，类库也无法提供原生那样流畅的动画（译注：之前动画是在JS线程执行，<a href="https://github.com/facebook/react-native/commit/19e2388a76a7792ace166b64b9f1fc4695b62f1f" target="_blank" rel="noopener">目前有人提交了一份代码</a>，有望使用原生iOS动画接口），因此我们在抽屉侧滑动画上继续使用<a href="https://github.com/facebook/pop" target="_blank" rel="noopener">PopAnimation</a>。</p>
+<blockquote>
+<p>注： 作者称该应用仅聊天视图和抽屉动画是原生代码实现的，其他均由React Native实现。</p>
+</blockquote>
+<p>当React Native Android版本发布时，我们也尝试在Android设备上运行应用，但遗憾的是，我们遇到了一些性能问题，只好暂时放弃。Android开发主管Miguel是这样说的：</p>
+<div class="tip"><br>很遗憾，不同Android设备的性能差异很大，这点明显落后于iOS。我们可以让应用运行地很快，但是性能——尤其是触摸事件，即使在更高端设备上也不能令人满意。并且在早期，由于React Native Android缺乏完善的功能，我们从产品原型过渡到成品应用比iOS花费了更多时间。<br></div>
+
+<h2 id="可用性"><a href="#可用性" class="headerlink" title="可用性"></a>可用性</h2><p><img src="/img/discord-usability.png" alt=""></p>
+<p>React Native让开发工作更简洁，使得开发者可以专注于每个新版本核心功能的开发。应用内自带的开发者菜单为我节省了大量的时间。</p>
+<p>其中我最喜欢的一个功能是<code>Show Inspector</code>（审查工具），它可以即时展现交互视图的层级结构以及被选组件中所有必要的样式信息，这无疑是我用过的最棒的iOS审查工具。</p>
+<h2 id="社区"><a href="#社区" class="headerlink" title="社区"></a>社区</h2><p>React Native项目每<strong>两周</strong>会发布一个新版本，其中包含一些新的特性以及修复的bug。这有利有弊，好比iOS几个月的稳定版本的发布，新的代码需要额外的时间进行升级，尤其是生产环境中的应用。因此，这也是到目前为止我们fork的React Native仓库只有四次主要升级的原因。</p>
+<p>由于React Native还不太成熟，资源有限，也不完整。但随着它越来越流行，在不久之后一定能赶上其他成熟的技术。下面列出了一些实用的资源，我也经常在它的仓库上提问和获取最新的信息：</p>
+<ul>
+<li><p>Reactiflux上的<a href="https://discord.gg/0ZcbPKXt5bWVQmld" target="_blank" rel="noopener">#react-native</a>。</p>
+</li>
+<li><p><a href="https://js.coach/react-native" target="_blank" rel="noopener">js.coach</a>—React Native开源组件列表。</p>
+</li>
+<li><p><a href="https://github.com/jondot/awesome-react-native" target="_blank" rel="noopener">awesome-react-native</a>—大量的React Native文章、教程和示例。</p>
+</li>
+</ul>
+<blockquote>
+<p>译注：中文资源：<a href="https://github.com/reactnativecn/react-native-guide" target="_blank" rel="noopener">React Native学习指南</a></p>
+</blockquote>
+<p>总的来说，React Native很有潜力，它把我们团队的移动应用开发带上了一个新的台阶。像我这样原生的iOS开发者可以平滑地过渡到React Native，这有些出乎我的意料。同时，它也帮助我扩展职业技能，因为我也可以很轻松地向React编写的Web应用贡献代码了。</p>
+</div></article></div><div class="post-nav"><div class="prev-wrap col-md-6 col-xs-6"><i class="fa fa-angle-double-left"></i><a href="/blog/2016/06/17/Android屏幕直播方案/" class="prev-post">Android屏幕直播方案</a></div><div class="next-wrap col-md-6 col-xs-6"><a href="/blog/2015/12/31/2015年小结/" class="next-post">2015年小结</a><i class="fa fa-angle-double-right"></i></div></div></main></div><footer><div class="copyright"><p>Crafted with <i class="fa fa-heart"></i> by&nbsp;ERIC HUANG&nbsp;|&nbsp;<a href="http://hexo.io/" target="_blank">Hexo</a> Theme <a href="https://github.com/yiliashaw/hexo-theme-prince" target="_blank">Prince</a></p></div></footer><script src="/js/jquery-3.2.1.min.js"></script><script src="/js/bootstrap.min.js"></script><link href="/fancybox/jquery.fancybox.min.css" rel="stylesheet"><script src="/fancybox/jquery.fancybox.min.js"></script><script src="/js/script.js"></script><script src="/js/gist-embed.min.js"></script></body></html>

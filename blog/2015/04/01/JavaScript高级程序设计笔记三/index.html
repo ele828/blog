@@ -1,0 +1,31 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Eric's Blog</title><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/img/favicon.png"><link href="/css/font-awesome.min.css" rel="stylesheet"><link href="/css/bootstrap.min.css" rel="stylesheet"><link href="/css/reset.css" rel="stylesheet"><link href="/css/main.css" rel="stylesheet"><script>(function(b,o,i,l,e,r){b.GoogleAnalyticsObject=l;b[l]||(b[l]=function(){(b[l].q=b[l].q||[]).push(arguments)});b[l].l=+new Date;e=o.createElement(i);r=o.getElementsByTagName(i)[0];e.src='//www.google-analytics.com/analytics.js';r.parentNode.insertBefore(e,r)}(window,document,'script','ga'));ga('create',"UA-79167899-1",'auto');ga('send','pageview');</script><link rel="stylesheet" href="/css/prism.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head><body><div class="wrap"><nav class="page-navigation"><div class="nav-container"><div class="page-header-logo"><h1 class="prince-log"><a href="/" class="home-link">ERIC HUANG</a></h1></div><button type="button" data-toggle="collapse" data-target=".main-nav-items" class="navbar-toggle"><span class="sr-only">Toggle navigation</span><span class="icon-bar"></span><span class="icon-bar"></span><span class="icon-bar"></span></button><ul class="collapse navbar-collapse main-nav-items"><li class="menu-item"><a href="/" target="_self">ARCHIVE</a></li><li class="menu-item"><a href="/gallery/" target="_self">GALLERY</a></li><li class="menu-item"><a href="/about/" target="_self">ABOUT</a></li></ul></div></nav><main class="prince-container"><div class="header"><div><h1 class="post-title">JavaScript高级程序设计笔记三</h1><div class="post-info">Apr 1st 2015</div></div></div><div class="post"><article class="post-block"><div class="post-entry"><p><strong>函数表达式</strong></p>
+<p>JS中定义函数有两种方式，一种是函数声明，另外一种是函数表达式。函数声明存在函数声明提升的过程，函数表达式则无此过程。</p>
+<p>匿名函数，也叫lamda函数。即function后没有标识符</p>
+<a id="more"></a>
+<p>以下的代码在ECMAScript中属于无效语法：</p>
+<pre class="line-numbers language-js"><code class="language-js">    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+      <span class="token keyword">function</span> <span class="token function">say</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token function">alert</span><span class="token punctuation">(</span>“Hello”<span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token punctuation">}</span>
+    <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+      <span class="token keyword">function</span> <span class="token function">say</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token function">alert</span><span class="token punctuation">(</span>“No”<span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token punctuation">}</span>
+    <span class="token punctuation">}</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>应该使用匿名函数的方式来写：</p>
+<pre class="line-numbers language-js"><code class="language-js">    <span class="token keyword">var</span> say<span class="token punctuation">;</span>
+
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+      say <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token function">alert</span><span class="token punctuation">(</span>“Hello”<span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token punctuation">}</span>
+    <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+      say <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token function">alert</span><span class="token punctuation">(</span>“No”<span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token punctuation">}</span>
+    <span class="token punctuation">}</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>JS中如果需要使用递归函数，那么应该使用arguments.callee来代替函数名，这样确保不会出现问题，最好不要直接填写自身函数名。</p>
+</div></article></div><div class="post-nav"><div class="prev-wrap col-md-6 col-xs-6"><i class="fa fa-angle-double-left"></i><a href="/blog/2015/04/05/手机跑酷游戏开发小记/" class="prev-post">手机跑酷游戏开发小记</a></div><div class="next-wrap col-md-6 col-xs-6"><a href="/blog/2015/03/30/JavaScript高级程序设计笔记二/" class="next-post">JavaScript高级程序设计笔记二</a><i class="fa fa-angle-double-right"></i></div></div></main></div><footer><div class="copyright"><p>Crafted with <i class="fa fa-heart"></i> by&nbsp;ERIC HUANG&nbsp;|&nbsp;<a href="http://hexo.io/" target="_blank">Hexo</a> Theme <a href="https://github.com/yiliashaw/hexo-theme-prince" target="_blank">Prince</a></p></div></footer><script src="/js/jquery-3.2.1.min.js"></script><script src="/js/bootstrap.min.js"></script><link href="/fancybox/jquery.fancybox.min.css" rel="stylesheet"><script src="/fancybox/jquery.fancybox.min.js"></script><script src="/js/script.js"></script><script src="/js/gist-embed.min.js"></script></body></html>

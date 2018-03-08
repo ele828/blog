@@ -1,0 +1,162 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Eric's Blog</title><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/img/favicon.png"><link href="/css/font-awesome.min.css" rel="stylesheet"><link href="/css/bootstrap.min.css" rel="stylesheet"><link href="/css/reset.css" rel="stylesheet"><link href="/css/main.css" rel="stylesheet"><script>(function(b,o,i,l,e,r){b.GoogleAnalyticsObject=l;b[l]||(b[l]=function(){(b[l].q=b[l].q||[]).push(arguments)});b[l].l=+new Date;e=o.createElement(i);r=o.getElementsByTagName(i)[0];e.src='//www.google-analytics.com/analytics.js';r.parentNode.insertBefore(e,r)}(window,document,'script','ga'));ga('create',"UA-79167899-1",'auto');ga('send','pageview');</script><link rel="stylesheet" href="/css/prism.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head><body><div class="wrap"><nav class="page-navigation"><div class="nav-container"><div class="page-header-logo"><h1 class="prince-log"><a href="/" class="home-link">ERIC HUANG</a></h1></div><button type="button" data-toggle="collapse" data-target=".main-nav-items" class="navbar-toggle"><span class="sr-only">Toggle navigation</span><span class="icon-bar"></span><span class="icon-bar"></span><span class="icon-bar"></span></button><ul class="collapse navbar-collapse main-nav-items"><li class="menu-item"><a href="/" target="_self">ARCHIVE</a></li><li class="menu-item"><a href="/gallery/" target="_self">GALLERY</a></li><li class="menu-item"><a href="/about/" target="_self">ABOUT</a></li></ul></div></nav><main class="prince-container"><div class="header"><div><h1 class="post-title">Android屏幕直播方案</h1><div class="post-info">Jun 17th 2016</div></div></div><div class="post"><article class="post-block"><div class="post-entry"><p>项目需求是实时同步Android手机屏幕画面至浏览器。这里有两个挑战，一是Android如何在应用内获得屏幕实时视频流，另一个是如何在浏览器上做视频直播。经过一番折腾，确定了如下的实现方案。期间，我们也实现了手机摄像头的直播。</p>
+<a id="more"></a>
+<p>演示效果：</p>
+<p><img src="/img/android-live-demo.gif" alt="演示"></p>
+<h1 id="Android获取实时屏幕画面"><a href="#Android获取实时屏幕画面" class="headerlink" title="Android获取实时屏幕画面"></a>Android获取实时屏幕画面</h1><h2 id="原理与基础设置"><a href="#原理与基础设置" class="headerlink" title="原理与基础设置"></a>原理与基础设置</h2><p>Android 5.0版本之后，支持使用<code>MediaProjection</code>的方式获取屏幕视频流。具体的使用方法和原理如下图所示：</p>
+<p><img src="/img/media-projection.png" alt="MediaProjection原理"></p>
+<p>参考<strong>ScreenRecorder项目<sup>3</sup></strong>的实现，我们了解到<code>VirtualDisplay</code>可以获取当前屏幕的视频流，创建<code>VirtualDisplay</code>只需通过<code>MediaProjectionManager</code>获取<code>MediaProjection</code>，然后通过<code>MediaProjection</code>创建<code>VirtualDisplay</code>即可。</p>
+<p>那么视频数据的流向是怎样的呢？</p>
+<ul>
+<li>首先，Display 会将画面投影到 VirtualDisplay中；</li>
+<li>接着，VirtualDisplay 会将图像渲染到 Surface中，而这个Surface是由MediaCodec所创建的；</li>
+<li>最后，用户可以通过MediaCodec获取特定编码的视频流数据。</li>
+</ul>
+<p>经过我们的尝试发现，在这个场景下，MediaCodec只允许使用<strong>video/avc</strong>编码类型，也就是<strong>RAW H.264</strong>的视频编码，使用其他的编码会出现应用Crash的现象（不知是否与硬件有关？）。由于这个视频编码，后面我们与它“搏斗”了好一段时间。</p>
+<p>以下是关键部分的代码（来自<strong>ScreenRecorder项目<sup>3</sup></strong>）：</p>
+<pre class="line-numbers language-java"><code class="language-java">codec <span class="token operator">=</span> MediaCodec<span class="token punctuation">.</span><span class="token function">createEncoderByType</span><span class="token punctuation">(</span>MIME_TYPE<span class="token punctuation">)</span><span class="token punctuation">;</span>
+mSurface <span class="token operator">=</span> codec<span class="token punctuation">.</span><span class="token function">createInputSurface</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+mVirtualDisplay <span class="token operator">=</span> mMediaProjection<span class="token punctuation">.</span><span class="token function">createVirtualDisplay</span><span class="token punctuation">(</span>
+        name<span class="token punctuation">,</span>
+        mWidth<span class="token punctuation">,</span>
+        mHeight<span class="token punctuation">,</span>
+        mDpi<span class="token punctuation">,</span>
+        DisplayManager<span class="token punctuation">.</span>VIRTUAL_DISPLAY_FLAG_PUBLIC<span class="token punctuation">,</span>
+        mSurface<span class="token punctuation">,</span>    <span class="token comment" spellcheck="true">// 图像会渲染到Surface中</span>
+        null<span class="token punctuation">,</span>
+        null<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>在编码之前，我们还需要设置视频编码的一些格式信息，这里我们通过<code>MediaFormat</code>进行编码格式设置，代码如下（来自<strong>ScreenRecorder项目<sup>3</sup></strong>）。</p>
+<pre class="line-numbers language-java"><code class="language-java"><span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">final</span> String MIME_TYPE <span class="token operator">=</span> <span class="token string">"video/avc"</span><span class="token punctuation">;</span> <span class="token comment" spellcheck="true">// H.264编码</span>
+<span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">final</span> <span class="token keyword">int</span> FRAME_RATE <span class="token operator">=</span> <span class="token number">30</span><span class="token punctuation">;</span>            <span class="token comment" spellcheck="true">// 30 FPS</span>
+<span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">final</span> <span class="token keyword">int</span> IFRAME_INTERVAL <span class="token operator">=</span> <span class="token number">10</span><span class="token punctuation">;</span>       <span class="token comment" spellcheck="true">// I-frames间隔时间</span>
+<span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">final</span> <span class="token keyword">int</span> TIMEOUT_US <span class="token operator">=</span> <span class="token number">10000</span><span class="token punctuation">;</span>
+
+<span class="token keyword">private</span> <span class="token keyword">void</span> <span class="token function">prepareEncoder</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">throws</span> IOException <span class="token punctuation">{</span>
+    MediaFormat format <span class="token operator">=</span> MediaFormat<span class="token punctuation">.</span><span class="token function">createVideoFormat</span><span class="token punctuation">(</span>MIME_TYPE<span class="token punctuation">,</span> mWidth<span class="token punctuation">,</span> mHeight<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    format<span class="token punctuation">.</span><span class="token function">setInteger</span><span class="token punctuation">(</span>MediaFormat<span class="token punctuation">.</span>KEY_COLOR_FORMAT<span class="token punctuation">,</span>
+            MediaCodecInfo<span class="token punctuation">.</span>CodecCapabilities<span class="token punctuation">.</span>COLOR_FormatSurface<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    format<span class="token punctuation">.</span><span class="token function">setInteger</span><span class="token punctuation">(</span>MediaFormat<span class="token punctuation">.</span>KEY_BIT_RATE<span class="token punctuation">,</span> mBitRate<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    format<span class="token punctuation">.</span><span class="token function">setInteger</span><span class="token punctuation">(</span>MediaFormat<span class="token punctuation">.</span>KEY_FRAME_RATE<span class="token punctuation">,</span> FRAME_RATE<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    format<span class="token punctuation">.</span><span class="token function">setInteger</span><span class="token punctuation">(</span>MediaFormat<span class="token punctuation">.</span>KEY_I_FRAME_INTERVAL<span class="token punctuation">,</span> IFRAME_INTERVAL<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    codec <span class="token operator">=</span> MediaCodec<span class="token punctuation">.</span><span class="token function">createEncoderByType</span><span class="token punctuation">(</span>MIME_TYPE<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    codec<span class="token punctuation">.</span><span class="token function">configure</span><span class="token punctuation">(</span>format<span class="token punctuation">,</span> null<span class="token punctuation">,</span> null<span class="token punctuation">,</span> MediaCodec<span class="token punctuation">.</span>CONFIGURE_FLAG_ENCODE<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    codec<span class="token punctuation">.</span><span class="token function">start</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h2 id="数据获取"><a href="#数据获取" class="headerlink" title="数据获取"></a>数据获取</h2><p><img src="/img/media-codec.png" alt="MediaCodec"></p>
+<blockquote>
+<p>图片来自Android官方文档</p>
+</blockquote>
+<p>紧接着，我们需要实时获取视频流了，我们可以直接从<code>MediaCodec</code>中获取视频数据。</p>
+<p>根据官方文档，获取视频流有两种做法。一种是通过<strong>异步</strong>的方式获取数据，使用回调来获取<code>OutputBuffer</code>，具体代码详见<a href="https://developer.android.com/reference/android/media/MediaCodec.html" target="_blank" rel="noopener">Android文档</a>。</p>
+<p>这里我们了解一下<strong>同步</strong>获取的方式，由于是同步执行，为了不阻塞主线程，必然需要启动一个新线程来处理。首先，程序会进入一个循环（可以设置变量进行停止），我们通过<code>codec.dequeueOutputBuffer()</code>方法获取到<code>outputBufferId</code>，接着通过ID获取<code>buffer</code>。这个<code>buffer</code>即是我们需要用到的<strong>实时视频帧数据</strong>了。代码如下（来自Android官方文档）：</p>
+<pre class="line-numbers language-java"><code class="language-java"> MediaFormat outputFormat <span class="token operator">=</span> codec<span class="token punctuation">.</span><span class="token function">getOutputFormat</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment" spellcheck="true">// 方式二</span>
+ codec<span class="token punctuation">.</span><span class="token function">start</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+ <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token punctuation">;</span><span class="token punctuation">;</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+   <span class="token keyword">int</span> outputBufferId <span class="token operator">=</span> codec<span class="token punctuation">.</span><span class="token function">dequeueOutputBuffer</span><span class="token punctuation">(</span>mBufferInfo<span class="token punctuation">,</span> <span class="token number">10000</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+   <span class="token keyword">if</span> <span class="token punctuation">(</span>outputBufferId <span class="token operator">>=</span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+     ByteBuffer outputBuffer <span class="token operator">=</span> codec<span class="token punctuation">.</span><span class="token function">getOutputBuffer</span><span class="token punctuation">(</span>outputBufferId<span class="token punctuation">)</span><span class="token punctuation">;</span>
+     <span class="token comment" spellcheck="true">// 方式一</span>
+     MediaFormat bufferFormat <span class="token operator">=</span> codec<span class="token punctuation">.</span><span class="token function">getOutputFormat</span><span class="token punctuation">(</span>outputBufferId<span class="token punctuation">)</span><span class="token punctuation">;</span>
+     codec<span class="token punctuation">.</span><span class="token function">releaseOutputBuffer</span><span class="token punctuation">(</span>outputBufferId<span class="token punctuation">,</span> …<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+   <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token keyword">if</span> <span class="token punctuation">(</span>outputBufferId <span class="token operator">==</span> MediaCodec<span class="token punctuation">.</span>INFO_OUTPUT_FORMAT_CHANGED<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+     outputFormat <span class="token operator">=</span> codec<span class="token punctuation">.</span><span class="token function">getOutputFormat</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment" spellcheck="true">// 方式二</span>
+   <span class="token punctuation">}</span>
+ <span class="token punctuation">}</span>
+ codec<span class="token punctuation">.</span><span class="token function">stop</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+ codec<span class="token punctuation">.</span><span class="token function">release</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>按照<strong>ScreenRecorder项目<sup>3</sup></strong>的做法，接着他使用<code>MediaMuxer</code>的<code>Muxer.writeSampleData()</code>方法，直接将视频流<code>outputBuffer</code>写入了文件。</p>
+<p>然而，我们需要的是实时推流至服务器。那么，接下去应该如何实现呢？</p>
+<h2 id="视频推流"><a href="#视频推流" class="headerlink" title="视频推流"></a>视频推流</h2><p>这里有一个小插曲，为了完成这个项目，我和同学查阅了不少资料和源码。其中有一个<strong>RtmpRecoder项目<sup>2</sup></strong>使用<code>FFmpeg</code>进行实时摄像头的<code>RTMP</code>推流，推流的原理如下图所示。</p>
+<p><img src="/img/ffmpeg-push.jpg" alt="FFmpeg推流"></p>
+<p><a href="https://ffmpeg.org/" target="_blank" rel="noopener">FFmpeg</a>是一个大名鼎鼎的音视频转码库，它由C语言实现，因此在Java中，我们需要通过JNI进行调用，这里，我们使用了<strong>JavaCV<sup>1</sup></strong>的FFmpeg转码功能。</p>
+<div class="tip"><br>注意：如果使用JavaCV并采用<code>mpeg1video</code>格式推流至服务器，切记将声道调为0，<code>recorder.setAudioChannels(0)</code>，否则视频会残缺不全。<br></div>
+
+<p>说到这里，不得不吐槽一下<strong>JavaCV<sup>1</sup></strong>，它没有文档，没有文档是件很可怕的事情，编程基本靠猜。而且它也没有实现FFmpeg的全部功能！！！我们为了把获取到的<strong>视频帧</strong>流数据传给JavaCV费了好大功夫，曾经一度想通过调用C语言函数来完成这项工作，但没有成功！</p>
+<p>到最后黔驴技穷，只好去项目中开Issue寻求帮助，然而作者表示尚未实现该功能，WTF。好吧，毕竟开源项目，别人也没有义务去做这件事。所以最后也只能自己来解决这个问题了。</p>
+<p><img src="/img/javacv-issue.png" alt=""></p>
+<p>废话不多说，既然<strong>JavaCV<sup>1</sup></strong>无法完成这项工作，那么我们只好另辟蹊径。</p>
+<p>现在，有两种做法。</p>
+<ul>
+<li>自己编写FFmpeg类库。我尝试直接使用CLI接入stream的方式实现实时推流。方法也很简单，只需要在Java中启动<code>FFmpeg</code>进程，然后pipe输入流，再由<code>FFmpeg</code>推流至服务器。但实践之后发现一些奇怪的问题，只好作罢。</li>
+<li>另一个方案就是徒手来处理<strong>视频帧</strong>数据，将转码的工作放到服务器端去实现，最后我们使用这个方案成功完成了任务。下面来看看H.264编码：</li>
+</ul>
+<h1 id="H-264编码"><a href="#H-264编码" class="headerlink" title="H.264编码"></a>H.264编码</h1><p>众所周知，视频编码格式种类繁多，H.264也是其中一种编码，每一种编码都有其特点和适用场景，更多信息请自行搜索，这里不多做赘述。期间，我们尝试过将上面获取到的<strong>视频帧</strong>数据保存为文件，想研究视频文件为什么会呈现为<strong>绿屏</strong>的画面。经过翻阅资料和试验我们发现，<strong>H.264</strong>编码有着特殊的分层结构。</p>
+<blockquote>
+<p>H.264 的功能分为两层：视频编码层(VCL, Video Coding Layer)和网络提取层(NAL, Network Abstraction Layer)。VCL 数据即编码处理的输出，它表示被压缩编码后的视频数据 序列。在 VCL 数据传输或存储之前,这些编码的 VCL 数据，先被映射或封装进 NAL 单元中。每个 NAL 单元包括一个原始字节序列负荷(RBSP, Raw Byte Sequence Payload)、一组对应于视频编码的 NAL 头信息。RBSP 的基本结构是：在原始编码数据的后面填加了结尾比特。一个bit“1”若干比特“0”，以便字节对齐。</p>
+</blockquote>
+<p><img src="/img/nal.png" alt="NAL"></p>
+<p>因此，为了将帧序列变成合法的H.264编码，我们需要手动构建<strong>NAL单元</strong>。H.264的帧是以<strong>NAL单元</strong>为单位进行封装的，NAL单元的结构如上图所示。H.264分为<code>Annexb</code>和<code>RTP</code>两种格式，<code>RTP</code>格式更适合用于网络传输，因为其结构更加节省空间，但由于Android系统提供的数据本身就是<code>Annexb</code>格式的，因此我们采用<code>Annexb</code>格式进行传输。</p>
+<p>按照<code>Annexb</code>格式的要求，我们需要将数据封装为如下格式：</p>
+<pre><code>0000 0001 + SPS + 0000 0001 + PPS + 0000 0001 + 视频帧（IDR帧）
+</code></pre><blockquote>
+<p>H.264的SPS和PPS串，包含了初始化H.264解码器所需要的信息参数，包括编码所用的profile，level，图像的宽和高，deblock滤波器等。</p>
+</blockquote>
+<p>然后不断重复以上格式即可输出正确的<strong>H.264</strong>编码的视频流了。这里的SPS和PPS在每一个NAL单元中重复存在，主要是适用于流式传播的场景，设想一下如果流式传播过程中漏掉了开头的SPS和PPS，那么整个视频流将永远无法被正确解码。</p>
+<p>我们在实践过程中，SPS和PPS只传递了一次，这样的方式比较适合我们的项目场景，也比较省流量。因此在我们的方案中，格式变为如下形式：</p>
+<pre><code>0000 0001 + SPS + 0000 0001 + PPS + 0000 0001 + 视频帧（IDR帧）+ 0000 0001 + 视频帧 + ...
+</code></pre><p>H.264编码比较复杂，我也只是在做项目期间查阅一些资料才有一点大概的了解，然后在项目完成之后才去反思和理解背后的原理。如果要深入学习，可以查阅相关的资料（<strong>H.264视频压缩标准<sup>5</sup></strong>）。</p>
+<p>介绍完<strong>H.264</strong>的基本原理，下面看看Android上具体的实现。其实Android系统的<code>MediaCodec</code>类库已经帮助我们完成了较多的工作，我们只需要在开始录制时（或每一次传输视频帧前）在视频帧之前写入SPS和PPS信息即可。<code>MediaCodec</code>已经默认在数据流（视频帧和SPS、PPS）之前添加了<code>start code</code>(0x01)，我们不需要手动填写。</p>
+<p>SPS和PPS分别对应了<code>bufferFormat</code>中的<code>csd-0</code>和<code>csd-1</code>字段。</p>
+<pre class="line-numbers language-java"><code class="language-java"><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span>
+
+<span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token keyword">if</span> <span class="token punctuation">(</span>outputBufferId <span class="token operator">==</span> MediaCodec<span class="token punctuation">.</span>INFO_OUTPUT_FORMAT_CHANGED<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    MediaFormat outputFormat <span class="token operator">=</span> codec<span class="token punctuation">.</span><span class="token function">getOutputFormat</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    outputFormat<span class="token punctuation">.</span><span class="token function">getByteBuffer</span><span class="token punctuation">(</span><span class="token string">"csd-0"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>    <span class="token comment" spellcheck="true">// SPS</span>
+    outputFormat<span class="token punctuation">.</span><span class="token function">getByteBuffer</span><span class="token punctuation">(</span><span class="token string">"csd-1"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>    <span class="token comment" spellcheck="true">// PPS</span>
+    <span class="token comment" spellcheck="true">/* 然后直接写入传输流 */</span>
+<span class="token punctuation">}</span>
+
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h1 id="服务器端"><a href="#服务器端" class="headerlink" title="服务器端"></a>服务器端</h1><p>实时的数据流通过Socket(tcp)传输到服务器端，服务器端采用<code>Node.js</code>实现视频流转码和<code>WebSocket</code>转播。为了使Web前端可以播放实时的视频，我们必须将格式转换为前端支持的视频格式，这里解码使用<code>FFmpeg</code>的Node.js封装（<strong>stream-transcoder项目<sup>6</sup></strong>）。以下是Socket通讯和转码的关键代码：</p>
+<pre class="line-numbers language-js"><code class="language-js"><span class="token keyword">var</span> Transcoder <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'stream-transcoder'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">var</span> net <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'net'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+net<span class="token punctuation">.</span><span class="token function">createServer</span><span class="token punctuation">(</span><span class="token keyword">function</span><span class="token punctuation">(</span>sock<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+
+    sock<span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span><span class="token string">'close'</span><span class="token punctuation">,</span> <span class="token keyword">function</span><span class="token punctuation">(</span>data<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'CLOSED: '</span> <span class="token operator">+</span>
+            sock<span class="token punctuation">.</span>remoteAddress <span class="token operator">+</span> <span class="token string">' '</span> <span class="token operator">+</span> sock<span class="token punctuation">.</span>remotePort<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    sock<span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span><span class="token string">'error'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span>err<span class="token punctuation">)</span> <span class="token operator">=</span><span class="token operator">></span> <span class="token punctuation">{</span>
+        console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>err<span class="token punctuation">)</span>
+    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token comment" spellcheck="true">// 转码  H.264 => mpeg1video</span>
+    <span class="token keyword">new</span> <span class="token class-name">Transcoder</span><span class="token punctuation">(</span>sock<span class="token punctuation">)</span>
+      <span class="token punctuation">.</span><span class="token function">size</span><span class="token punctuation">(</span>width<span class="token punctuation">,</span> height<span class="token punctuation">)</span>
+      <span class="token punctuation">.</span><span class="token function">fps</span><span class="token punctuation">(</span><span class="token number">30</span><span class="token punctuation">)</span>
+      <span class="token punctuation">.</span><span class="token function">videoBitrate</span><span class="token punctuation">(</span><span class="token number">500</span> <span class="token operator">*</span> <span class="token number">1000</span><span class="token punctuation">)</span>
+      <span class="token punctuation">.</span><span class="token function">format</span><span class="token punctuation">(</span><span class="token string">'mpeg1video'</span><span class="token punctuation">)</span>
+      <span class="token punctuation">.</span><span class="token function">channels</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span>
+      <span class="token punctuation">.</span><span class="token function">stream</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+      <span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span><span class="token string">'data'</span><span class="token punctuation">,</span> <span class="token keyword">function</span><span class="token punctuation">(</span>data<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token comment" spellcheck="true">// WebSocket转播</span>
+        socketServer<span class="token punctuation">.</span><span class="token function">broadcast</span><span class="token punctuation">(</span>data<span class="token punctuation">,</span> <span class="token punctuation">{</span>binary<span class="token punctuation">:</span><span class="token boolean">true</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token punctuation">}</span><span class="token punctuation">)</span>
+
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">listen</span><span class="token punctuation">(</span><span class="token number">9091</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h1 id="Web直播"><a href="#Web直播" class="headerlink" title="Web直播"></a>Web直播</h1><p>紧接着，Web前端与服务器建立<code>WebSocket</code>连接，使用<strong>jsmpeg项目<sup>7</sup></strong>对mpeg1video的视频流进行解码并呈现在Canvas上。</p>
+<pre class="line-numbers language-js"><code class="language-js"><span class="token keyword">var</span> client <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">WebSocket</span><span class="token punctuation">(</span><span class="token string">'ws://127.0.0.1:9092/'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">var</span> canvas <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">getElementById</span><span class="token punctuation">(</span><span class="token string">'videoCanvas'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">var</span> player <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">jsmpeg</span><span class="token punctuation">(</span>client<span class="token punctuation">,</span> <span class="token punctuation">{</span>canvas<span class="token punctuation">:</span>canvas<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+<p>后续还可以做一些灵活的配置以及错误处理，可以让整个直播的流程更加稳定。至于视频方面的优化，也可以继续尝试各种参数的调节等等。</p>
+<p>为了完成这个项目，我和我的另一个同学前后花费了四五天的时间，进行各种摸索和尝试，所以我决定记录下这个方案，希望可以帮助到有需要的人。</p>
+<h2 id="其他"><a href="#其他" class="headerlink" title="其他"></a>其他</h2><ol>
+<li>参考<a href="https://github.com/bytedeco/javacv" target="_blank" rel="noopener">JavaCV</a>项目</li>
+<li>参考<a href="https://github.com/beautifulSoup/RtmpRecoder" target="_blank" rel="noopener">RtmpRecoder开源项目</a>的实现</li>
+<li>参考<a href="https://github.com/yrom/ScreenRecorder" target="_blank" rel="noopener">ScreenRecorder开源项目</a>的实现</li>
+<li>参考<a href="https://developer.android.com/reference/android/media/MediaCodec.html" target="_blank" rel="noopener">Android文档</a></li>
+<li>文献<a href="http://www.axis.com/files/whitepaper/wp_h264_34203_cn_0901_lo.pdf" target="_blank" rel="noopener">H.264视频压缩标准</a></li>
+<li>使用<a href="https://github.com/trenskow/stream-transcoder.js" target="_blank" rel="noopener">stream-transcoder项目</a></li>
+<li>使用<a href="https://github.com/phoboslab/jsmpeg" target="_blank" rel="noopener">jsmpeg项目</a></li>
+</ol>
+</div></article></div><div class="post-nav"><div class="prev-wrap col-md-6 col-xs-6"><i class="fa fa-angle-double-left"></i><a href="/blog/2016/07/01/React Native NavigationExperimental抢先看（一）/" class="prev-post">React Native NavigationExperimental抢先看（一）</a></div><div class="next-wrap col-md-6 col-xs-6"><a href="/blog/2016/06/12/使用React Native一年后的感受/" class="next-post">使用React Native一年后的感受</a><i class="fa fa-angle-double-right"></i></div></div></main></div><footer><div class="copyright"><p>Crafted with <i class="fa fa-heart"></i> by&nbsp;ERIC HUANG&nbsp;|&nbsp;<a href="http://hexo.io/" target="_blank">Hexo</a> Theme <a href="https://github.com/yiliashaw/hexo-theme-prince" target="_blank">Prince</a></p></div></footer><script src="/js/jquery-3.2.1.min.js"></script><script src="/js/bootstrap.min.js"></script><link href="/fancybox/jquery.fancybox.min.css" rel="stylesheet"><script src="/fancybox/jquery.fancybox.min.js"></script><script src="/js/script.js"></script><script src="/js/gist-embed.min.js"></script></body></html>

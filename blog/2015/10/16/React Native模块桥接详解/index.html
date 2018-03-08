@@ -1,0 +1,206 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Eric's Blog</title><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/img/favicon.png"><link href="/css/font-awesome.min.css" rel="stylesheet"><link href="/css/bootstrap.min.css" rel="stylesheet"><link href="/css/reset.css" rel="stylesheet"><link href="/css/main.css" rel="stylesheet"><script>(function(b,o,i,l,e,r){b.GoogleAnalyticsObject=l;b[l]||(b[l]=function(){(b[l].q=b[l].q||[]).push(arguments)});b[l].l=+new Date;e=o.createElement(i);r=o.getElementsByTagName(i)[0];e.src='//www.google-analytics.com/analytics.js';r.parentNode.insertBefore(e,r)}(window,document,'script','ga'));ga('create',"UA-79167899-1",'auto');ga('send','pageview');</script><link rel="stylesheet" href="/css/prism.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head><body><div class="wrap"><nav class="page-navigation"><div class="nav-container"><div class="page-header-logo"><h1 class="prince-log"><a href="/" class="home-link">ERIC HUANG</a></h1></div><button type="button" data-toggle="collapse" data-target=".main-nav-items" class="navbar-toggle"><span class="sr-only">Toggle navigation</span><span class="icon-bar"></span><span class="icon-bar"></span><span class="icon-bar"></span></button><ul class="collapse navbar-collapse main-nav-items"><li class="menu-item"><a href="/" target="_self">ARCHIVE</a></li><li class="menu-item"><a href="/gallery/" target="_self">GALLERY</a></li><li class="menu-item"><a href="/about/" target="_self">ABOUT</a></li></ul></div></nav><main class="prince-container"><div class="header"><div><h1 class="post-title">React Native模块桥接详解</h1><div class="post-info">Oct 16th 2015</div></div></div><div class="post"><article class="post-block"><div class="post-entry"><p>在这篇文章中，我假设你已经掌握了React Native的基础知识，并且有兴趣了解JavaScript和本地通信的内部工作原理。</p>
+<a id="more"></a>
+<h2 id="主线程"><a href="#主线程" class="headerlink" title="主线程"></a>主线程</h2><p>在开始之前，我们首先要知道React Native中的<strong>3个重要的线程</strong>:</p>
+<ul>
+<li><code>Shadow Queue</code>: 负责布局的控制</li>
+<li><code>Main Thread</code>: UIKit运行的线程</li>
+<li><code>JavaScript Thread</code>: JS代码在该线程运行</li>
+</ul>
+<p>此外，如果没有特殊说明，每一个单独的本地模块都有自己的GCD队列。</p>
+<blockquote>
+<p>注：<code>Shadow Queue</code>顾名思义，实际上是一个GCD队列而不是一个线程。</p>
+</blockquote>
+<h2 id="本地模块"><a href="#本地模块" class="headerlink" title="本地模块"></a>本地模块</h2><p>如果你还不知道如何创建一个本地模块，我推荐你可以先看看<a href="http://facebook.github.io/react-native/docs/native-modules-ios.html#content" target="_blank" rel="noopener">官方文档</a>。</p>
+<p>下面是一个<strong>Person</strong>模块，实现了JS调用本地模块的交互过程。</p>
+<pre class="line-numbers language-objectivec"><code class="language-objectivec"><span class="token keyword">@interface</span> Person <span class="token punctuation">:</span> NSObject <span class="token operator">&lt;</span>RCTBridgeModule<span class="token operator">></span>
+<span class="token keyword">@end</span>
+
+<span class="token keyword">@implementation</span> Logger
+
+<span class="token function">RCT_EXPORT_MODULE</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+
+<span class="token function">RCT_EXPORT_METHOD</span><span class="token punctuation">(</span>greet<span class="token punctuation">:</span><span class="token punctuation">(</span>NSString <span class="token operator">*</span><span class="token punctuation">)</span>name<span class="token punctuation">)</span>
+<span class="token punctuation">{</span>
+  <span class="token function">NSLog</span><span class="token punctuation">(</span><span class="token string">@"Hi, %@!"</span><span class="token punctuation">,</span> name<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">[</span>_bridge<span class="token punctuation">.</span>eventDispatcher sendAppEventWithName<span class="token punctuation">:</span><span class="token string">@"greeted"</span>
+                                           body<span class="token punctuation">:</span><span class="token operator">@</span><span class="token punctuation">{</span> <span class="token string">@"name"</span><span class="token punctuation">:</span> name <span class="token punctuation">}</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token keyword">@end</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>我们主要来看看<code>RCT_EXPORT_MODULE</code>和<code>RCT_EXPORT_METHOD</code>这两个宏的实现，了解它们所扮演的角色以及内部是如何工作的。</p>
+<h3 id="RCT-EXPORT-MODULE-js-name"><a href="#RCT-EXPORT-MODULE-js-name" class="headerlink" title="RCT_EXPORT_MODULE([js_name])"></a>RCT_EXPORT_MODULE([js_name])</h3><p>顾名思义，这个宏会导出你的模块，但在特定的环境中，<code>导出</code>的具体含义是什么？这里的意思是把你的模块暴露给React中的<code>Bridge</code>。<br>它的实现也相当简单：</p>
+<pre class="line-numbers language-objectivec"><code class="language-objectivec"> <span class="token macro property">#<span class="token directive keyword">define</span> RCT_EXPORT_MODULE(js_name) \
+</span>
+  RCT_EXTERN <span class="token keyword">void</span> <span class="token function">RCTRegisterModule</span><span class="token punctuation">(</span>Class<span class="token punctuation">)</span><span class="token punctuation">;</span> \
+  <span class="token operator">+</span> <span class="token punctuation">(</span>NSString \<span class="token operator">*</span><span class="token punctuation">)</span>moduleName <span class="token punctuation">{</span> <span class="token keyword">return</span> <span class="token operator">@</span>#js_name<span class="token punctuation">;</span> <span class="token punctuation">}</span> \
+  <span class="token operator">+</span> <span class="token punctuation">(</span><span class="token keyword">void</span><span class="token punctuation">)</span>load <span class="token punctuation">{</span> <span class="token function">RCTRegisterModule</span><span class="token punctuation">(</span><span class="token keyword">self</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token punctuation">}</span>
+
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>这段代码做了哪些事情？</p>
+<ul>
+<li><p>它首先声明<code>RCTRegisterModule</code>extern`(外部)函数。意味着这个函数的实现对于编译器是不可见的，但在链接时可见。</p>
+</li>
+<li><p>声明一个<code>moduleName</code>方法，该方法返回宏的可选参数<code>js_name</code>。这样，你就可以让你的模块在JS中有一个区别与Objective-C类名的名称。</p>
+</li>
+<li><p>声明一个<code>load</code>方法(当app被加载到内存之后，它会调用所有类的load方法)，该方法调用上面声明的<code>RCTRegisterModule</code>函数，让<code>bridge</code>知道这个模块。</p>
+</li>
+</ul>
+<h3 id="RCT-EXPORT-METHOD-method"><a href="#RCT-EXPORT-METHOD-method" class="headerlink" title="RCT_EXPORT_METHOD(method)"></a>RCT_EXPORT_METHOD(method)</h3><p>这个宏更有意思，实际上他没有给你的方法添加任何东西，而是额外创建了一个新的方法。</p>
+<p>这个新的方法看起来像下面的例子一样：</p>
+<pre class="line-numbers language-objectivec"><code class="language-objectivec"><span class="token operator">+</span> <span class="token punctuation">(</span>NSArray <span class="token operator">*</span><span class="token punctuation">)</span>__rct_export__120
+<span class="token punctuation">{</span>
+  <span class="token keyword">return</span> <span class="token operator">@</span><span class="token punctuation">[</span> <span class="token string">@""</span><span class="token punctuation">,</span> <span class="token string">@"log:(NSString *)message"</span> <span class="token punctuation">]</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+<blockquote>
+<p>“这是什么玩意儿？”，你一定有这样的想法。</p>
+</blockquote>
+<p>实际上，它是由前缀(<strong>rct_export</strong>)，一个可选的<code>js_name</code>(这里为空)和函数定义的行号(这里是12)还有一个__COUNTER__(累加器)的宏拼接而成的。</p>
+<p>这个方法唯一的目的就是返回一个包含<code>js_name</code>和方法签名的字符串数组。在名字上的处理是为了避免冲突。</p>
+<blockquote>
+<p>注：如果你使用Category，这里依然可能存在两个同名的方法，虽然Xcode会有警告，但仍然会表现出异常。</p>
+</blockquote>
+<h2 id="运行时"><a href="#运行时" class="headerlink" title="运行时"></a>运行时</h2><p>整个组装过程提供了信息给<code>bridge</code>，所以它可以找到任何已经导出的模块和方法。但是这个过程发生在加载期间，下面我们看看在运行期它是如何被使用的。</p>
+<p>桥接初始化的依赖图：<br><img src="http://tadeuzagallo.com/blog/assets/img/initialisation.svg" alt="inheritants"></p>
+<h3 id="初始化模块"><a href="#初始化模块" class="headerlink" title="初始化模块"></a>初始化模块</h3><p><code>RCTRegisterModule</code>方法所做的事情就是把类添加到一个数组中，后面如果创建新的<code>bridge</code>实例，就可以直接找到这个类了。下面，程序遍历模块数组并为每一个模块创建实例对象，然后把<code>bridge</code>的引用赋值给模块，再把对象引用储存到<code>bridge</code>中（实现相互调用），最后检查模块是否有指定运行的队列，如果没有则为其创建一个新的队列，从其他模块中隔离开来。</p>
+<pre class="line-numbers language-objectivec"><code class="language-objectivec">NSMutableDictionary <span class="token operator">*</span>modulesByName<span class="token punctuation">;</span> <span class="token comment" spellcheck="true">// = ...</span>
+<span class="token keyword">for</span> <span class="token punctuation">(</span>Class moduleClass <span class="token keyword">in</span> <span class="token function">RCTGetModuleClasses</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token comment" spellcheck="true">// ...</span>
+  module <span class="token operator">=</span> <span class="token punctuation">[</span>moduleClass new<span class="token punctuation">]</span><span class="token punctuation">;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token punctuation">[</span>module respondsToSelector<span class="token punctuation">:</span><span class="token keyword">@selector</span><span class="token punctuation">(</span>setBridge<span class="token punctuation">:</span><span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    module<span class="token punctuation">.</span>bridge <span class="token operator">=</span> <span class="token keyword">self</span><span class="token punctuation">;</span>
+  <span class="token punctuation">}</span>
+  modulesByName<span class="token punctuation">[</span>moduleName<span class="token punctuation">]</span> <span class="token operator">=</span> module<span class="token punctuation">;</span>
+  <span class="token comment" spellcheck="true">// ...</span>
+<span class="token punctuation">}</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h3 id="配置模块"><a href="#配置模块" class="headerlink" title="配置模块"></a>配置模块</h3><p>一旦我们在后台线程运行了模块，就可以列出并且调用该模块的所有以<code>__rct_export__</code>开头的方法，也可以得到方法签名的字符串表示。这是非常重要的，这样一来，我们就知道了参数实际的类型。比如，在运行时我们只能知道参数的名称是<code>id</code>,但通过这种方式就可以知道参数的类型是<code>NSString *</code>了。</p>
+<pre class="line-numbers language-objectivec"><code class="language-objectivec"><span class="token keyword">unsigned</span> <span class="token keyword">int</span> methodCount<span class="token punctuation">;</span>
+Method <span class="token operator">*</span>methods <span class="token operator">=</span> <span class="token function">class_copyMethodList</span><span class="token punctuation">(</span>moduleClass<span class="token punctuation">,</span> <span class="token operator">&amp;</span>methodCount<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">unsigned</span> <span class="token keyword">int</span> i <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span> i <span class="token operator">&lt;</span> methodCount<span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  Method method <span class="token operator">=</span> methods<span class="token punctuation">[</span>i<span class="token punctuation">]</span><span class="token punctuation">;</span>
+  SEL selector <span class="token operator">=</span> <span class="token function">method_getName</span><span class="token punctuation">(</span>method<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token function">NSStringFromSelector</span><span class="token punctuation">(</span>selector<span class="token punctuation">)</span> hasPrefix<span class="token punctuation">:</span><span class="token string">@"__rct_export__"</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    IMP imp <span class="token operator">=</span> <span class="token function">method_getImplementation</span><span class="token punctuation">(</span>method<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    NSArray <span class="token operator">*</span>entries <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">(</span>NSArray <span class="token operator">*</span><span class="token punctuation">(</span><span class="token operator">*</span><span class="token punctuation">)</span><span class="token punctuation">(</span>id<span class="token punctuation">,</span> SEL<span class="token punctuation">)</span><span class="token punctuation">)</span>imp<span class="token punctuation">)</span><span class="token punctuation">(</span>_moduleClass<span class="token punctuation">,</span> selector<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token comment" spellcheck="true">//...</span>
+    <span class="token punctuation">[</span>moduleMethods addObject<span class="token punctuation">:</span><span class="token comment" spellcheck="true">/* Object representing the method */</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h3 id="安装JavaScript-Executor"><a href="#安装JavaScript-Executor" class="headerlink" title="安装JavaScript Executor"></a>安装JavaScript Executor</h3><p><code>JavaScript Executors</code>有一个<code>-setUp</code>方法，允许其来做一些昂贵的工作，例如在后台线程初始化一个<code>JavaScriptCore</code>。同时，它也省去了一些不必要的工作，比如，只有激活状态下的<code>executor</code>才会收到<code>setUp</code>的调用指令，而不是所有的<code>excutor</code>都会收到指令。</p>
+<pre class="line-numbers language-objectivec"><code class="language-objectivec">JSGlobalContextRef ctx <span class="token operator">=</span> <span class="token function">JSGlobalContextCreate</span><span class="token punctuation">(</span><span class="token constant">NULL</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+_context <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">[</span>RCTJavaScriptContext alloc<span class="token punctuation">]</span> initWithJSContext<span class="token punctuation">:</span>ctx<span class="token punctuation">]</span><span class="token punctuation">;</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+<h3 id="注入JSON配置"><a href="#注入JSON配置" class="headerlink" title="注入JSON配置"></a>注入JSON配置</h3><p>JSON配置仅仅包含自己模块的信息，如下：</p>
+<pre class="line-numbers language-json"><code class="language-json"><span class="token punctuation">{</span>
+  <span class="token property">"remoteModuleConfig"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+    <span class="token property">"Logger"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+      <span class="token property">"constants"</span><span class="token operator">:</span> <span class="token punctuation">{</span> /* If we had exported constants... */ <span class="token punctuation">}</span><span class="token punctuation">,</span>
+      <span class="token property">"moduleID"</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+      <span class="token property">"methods"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+        <span class="token property">"requestPermissions"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+          <span class="token property">"type"</span><span class="token operator">:</span> <span class="token string">"remote"</span><span class="token punctuation">,</span>
+          <span class="token property">"methodID"</span><span class="token operator">:</span> <span class="token number">1</span>
+        <span class="token punctuation">}</span>
+      <span class="token punctuation">}</span>
+    <span class="token punctuation">}</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>这个信息被作为全局变量储存在JavaScript虚拟机中，所以JS这边的<code>bridge</code>一被初始化就可以使用这些信息去创建模块。</p>
+<h3 id="加载JavaScript代码"><a href="#加载JavaScript代码" class="headerlink" title="加载JavaScript代码"></a>加载JavaScript代码</h3><p>这个过程很直观，就是从指定的地方载入源码。通常，在开发期间从<code>packager</code>下载导入，在生产环境下，直接从从本地存储加载。</p>
+<h3 id="执行JavaScript代码"><a href="#执行JavaScript代码" class="headerlink" title="执行JavaScript代码"></a>执行JavaScript代码</h3><p>一切准备就绪，程序就可以加载JavaScriptCore虚拟机中的应用源码，拷贝、解析、执行代码。首次执行需要注册所有CommanJS模块，指明入口文件。</p>
+<pre class="line-numbers language-objectivec"><code class="language-objectivec">JSValueRef jsError <span class="token operator">=</span> <span class="token constant">NULL</span><span class="token punctuation">;</span>
+JSStringRef execJSString <span class="token operator">=</span> <span class="token function">JSStringCreateWithCFString</span><span class="token punctuation">(</span><span class="token punctuation">(</span>__bridge
+      CFStringRef<span class="token punctuation">)</span>script<span class="token punctuation">)</span><span class="token punctuation">;</span>
+JSStringRef jsURL <span class="token operator">=</span> <span class="token function">JSStringCreateWithCFString</span><span class="token punctuation">(</span><span class="token punctuation">(</span>__bridge
+      CFStringRef<span class="token punctuation">)</span>sourceURL<span class="token punctuation">.</span>absoluteString<span class="token punctuation">)</span><span class="token punctuation">;</span>
+JSValueRef result <span class="token operator">=</span> <span class="token function">JSEvaluateScript</span><span class="token punctuation">(</span>strongSelf<span class="token operator">-></span>_context<span class="token punctuation">.</span>ctx<span class="token punctuation">,</span>
+    execJSString<span class="token punctuation">,</span> <span class="token constant">NULL</span><span class="token punctuation">,</span> jsURL<span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">,</span> <span class="token operator">&amp;</span>jsError<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token function">JSStringRelease</span><span class="token punctuation">(</span>jsURL<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token function">JSStringRelease</span><span class="token punctuation">(</span>execJSString<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h2 id="JavaScript模块"><a href="#JavaScript模块" class="headerlink" title="JavaScript模块"></a>JavaScript模块</h2><p>模块从JSON配置中生成，在JavaScript中通过<code>NativeModules</code>对象进行使用。</p>
+<pre class="line-numbers language-js"><code class="language-js"><span class="token keyword">var</span> <span class="token punctuation">{</span> NativeModules <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'react-native'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">var</span> <span class="token punctuation">{</span> Person <span class="token punctuation">}</span> <span class="token operator">=</span> NativeModules<span class="token punctuation">;</span>
+
+Person<span class="token punctuation">.</span><span class="token function">greet</span><span class="token punctuation">(</span><span class="token string">'Tadeu'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+<p>这种工作方式的流程是，当你调用一个方法，请求会被推进一个队列中，它包含了模块名称、方法名称和所有调用所需的参数。在JavaScript执行之后，该队列会被传回到本地去执行请求。</p>
+<h2 id="调用周期"><a href="#调用周期" class="headerlink" title="调用周期"></a>调用周期</h2><p>如果我们用上面的代码去调用一个模块，它的流程如下：<br><img src="http://tadeuzagallo.com/blog/assets/img/graph.svg" alt="inheritants"></p>
+<p>调用从本地模块到JS。在执行期间，当调用<code>NativeModules</code>上的方法时，程序把将会在本地执行的调用加入队列中。JS执行结束后，本地程序会遍历并运行队列中的调用请求，回调和调用结果(使用<code>_bridge</code>实例可以通过本地模块去调用<code>enqueueJSCall:args:</code>)最终会通过<code>bridge</code>传回给JS。</p>
+<blockquote>
+<p>上图仅表示了JavaScript执行中期的流程</p>
+</blockquote>
+<p>注：如果你关注过该项目，曾经有一个本地到JS的调用队列，它会被指派到每一个vSYNC，但为了加快启动的速度已经将这个功能移除。</p>
+<h2 id="参数类型"><a href="#参数类型" class="headerlink" title="参数类型"></a>参数类型</h2><p>从本地到JS的调用是比较容易的，参数被传入一个<code>NSArray</code>然后转换成JSON。但对于来自JS的调用，需要本地类型，为此，我们显式地检查初始类型(ints, floats, chars等等)。但是正如之前所说，对于对象和结构体，运行时没有从<code>NSMethodSignature</code>中给我们提供足够的信息，所以我们把类型保存为字符串。</p>
+<p>我们使用正则表达式从方法签名中提取类型，实际中还使用<code>RCTConvert</code>工具类去转换对象，对于每个支持的类型它都有一个默认的方法，尝试把<code>JSON</code>输入转换为所需的类型。</p>
+<p>除了结构体以外，我们使用<code>objc_msgSend</code>去动态地调用方法，因为在arm64上没有<code>objc_msgSend_stret</code>对应的版本，我们退回到<code>NSInvocation</code>。</p>
+<p>一旦我们转换了所有的参数，我们使用另一个<code>NSInvocation</code>带着参数去调用目标模块和方法。</p>
+<p>下面是一个例子：</p>
+<pre class="line-numbers language-objectivec"><code class="language-objectivec"><span class="token comment" spellcheck="true">// If you had the following method in a given module, e.g. `MyModule`</span>
+<span class="token function">RCT_EXPORT_METHOD</span><span class="token punctuation">(</span>methodWithArray<span class="token punctuation">:</span><span class="token punctuation">(</span>NSArray <span class="token operator">*</span><span class="token punctuation">)</span> size<span class="token punctuation">:</span><span class="token punctuation">(</span>CGRect<span class="token punctuation">)</span>size<span class="token punctuation">)</span> <span class="token punctuation">{</span><span class="token punctuation">}</span>
+
+<span class="token comment" spellcheck="true">// And called it from JS, like:</span>
+<span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'NativeModules'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>MyModule<span class="token punctuation">.</span><span class="token function">method</span><span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token string">'a'</span><span class="token punctuation">,</span> <span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">{</span>
+  x<span class="token punctuation">:</span> <span class="token number">0</span><span class="token punctuation">,</span>
+  y<span class="token punctuation">:</span> <span class="token number">0</span><span class="token punctuation">,</span>
+  width<span class="token punctuation">:</span> <span class="token number">200</span><span class="token punctuation">,</span>
+  height<span class="token punctuation">:</span> <span class="token number">100</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">// The JS queue sent to native would then look like the following:</span>
+<span class="token comment" spellcheck="true">// ** Remember that it's a queue of calls, so all the fields are arrays **</span>
+<span class="token operator">@</span><span class="token punctuation">[</span>
+  <span class="token operator">@</span><span class="token punctuation">[</span> <span class="token operator">@</span><span class="token number">0</span> <span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token comment" spellcheck="true">// module IDs</span>
+  <span class="token operator">@</span><span class="token punctuation">[</span> <span class="token operator">@</span><span class="token number">1</span> <span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token comment" spellcheck="true">// method IDs</span>
+  <span class="token operator">@</span><span class="token punctuation">[</span>       <span class="token comment" spellcheck="true">// arguments</span>
+    <span class="token operator">@</span><span class="token punctuation">[</span>
+      <span class="token operator">@</span><span class="token punctuation">[</span><span class="token string">@"a"</span><span class="token punctuation">,</span> <span class="token operator">@</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+      <span class="token operator">@</span><span class="token punctuation">{</span> <span class="token string">@"x"</span><span class="token punctuation">:</span> <span class="token operator">@</span><span class="token number">0</span><span class="token punctuation">,</span> <span class="token string">@"y"</span><span class="token punctuation">:</span> <span class="token operator">@</span><span class="token number">0</span><span class="token punctuation">,</span> <span class="token string">@"width"</span><span class="token punctuation">:</span> <span class="token operator">@</span><span class="token number">200</span><span class="token punctuation">,</span> <span class="token string">@"height"</span><span class="token punctuation">:</span> <span class="token operator">@</span><span class="token number">100</span> <span class="token punctuation">}</span>
+    <span class="token punctuation">]</span>
+  <span class="token punctuation">]</span>
+<span class="token punctuation">]</span><span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">// This would convert into the following calls (pseudo code)</span>
+NSInvocation call
+call<span class="token punctuation">[</span>args<span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token function">GetModuleForId</span><span class="token punctuation">(</span><span class="token operator">@</span><span class="token number">0</span><span class="token punctuation">)</span>
+call<span class="token punctuation">[</span>args<span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token function">GetMethodForId</span><span class="token punctuation">(</span><span class="token operator">@</span><span class="token number">1</span><span class="token punctuation">)</span>
+call<span class="token punctuation">[</span>args<span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token function">obj_msgSend</span><span class="token punctuation">(</span>RCTConvert<span class="token punctuation">,</span> NSArray<span class="token punctuation">,</span> <span class="token operator">@</span><span class="token punctuation">[</span><span class="token string">@"a"</span><span class="token punctuation">,</span> <span class="token operator">@</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+call<span class="token punctuation">[</span>args<span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token number">3</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token function">NSInvocation</span><span class="token punctuation">(</span>RCTConvert<span class="token punctuation">,</span> CGRect<span class="token punctuation">,</span> <span class="token operator">@</span><span class="token punctuation">{</span> <span class="token string">@"x"</span><span class="token punctuation">:</span> <span class="token operator">@</span><span class="token number">0</span><span class="token punctuation">,</span> <span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span> <span class="token punctuation">}</span><span class="token punctuation">)</span>
+<span class="token function">call</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h2 id="线程"><a href="#线程" class="headerlink" title="线程"></a>线程</h2><p>正如上面提到的，每个模块默认都会有自己的GCD队列，除非通过实现<code>-methodQueue</code>方法或跟一个有效的队列合成<code>methodQueue</code>属性来指定了特定的运行队列。<code>View Manager</code>(继承自RCTViewManager)是一个特例，它默认使用<code>Shadow Queue</code>。<code>RCTJSThread</code>也比较特殊，它仅仅是为了占位，因为它是一个线程而不是队列。</p>
+<ul>
+<li><code>View Manager</code>不是真正的特例，因为它的基类显式地指定了<code>shadow queue</code>作为目标队列。</li>
+</ul>
+<p>当前线程的规则如下：</p>
+<ul>
+<li><code>-init</code>和<code>-setBridge</code>是为了保证在主线程中被调用。</li>
+<li>所有导出的模块都保证在在目标队列中被调用。</li>
+<li>如果你实现了<code>RCTInvalidating</code>协议，<strong>invalidate</strong>同样保证在目标队列中被调用。</li>
+<li>不保证<code>-dealloc</code>将会在哪个线程被调用。</li>
+</ul>
+<p>如果从JS有批量的调用请求，请求将会被目标队列分组，并行地被调度。</p>
+<pre class="line-numbers language-js"><code class="language-js"><span class="token comment" spellcheck="true">// group `calls` by `queue` in `buckets`</span>
+<span class="token keyword">for</span> <span class="token punctuation">(</span>id queue <span class="token keyword">in</span> buckets<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  dispatch_block_t block <span class="token operator">=</span> <span class="token operator">^</span><span class="token punctuation">{</span>
+    NSOrderedSet <span class="token operator">*</span>calls <span class="token operator">=</span> <span class="token punctuation">[</span>buckets objectForKey<span class="token punctuation">:</span>queue<span class="token punctuation">]</span><span class="token punctuation">;</span>
+    <span class="token keyword">for</span> <span class="token punctuation">(</span>NSNumber <span class="token operator">*</span>indexObj <span class="token keyword">in</span> calls<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+      <span class="token comment" spellcheck="true">// Actually call</span>
+    <span class="token punctuation">}</span>
+  <span class="token punctuation">}</span><span class="token punctuation">;</span>
+
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>queue <span class="token operator">==</span> RCTJSThread<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token punctuation">[</span>_javaScriptExecutor executeBlockOnJavaScriptQueue<span class="token punctuation">:</span>block<span class="token punctuation">]</span><span class="token punctuation">;</span>
+  <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token keyword">if</span> <span class="token punctuation">(</span>queue<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token function">dispatch_async</span><span class="token punctuation">(</span>queue<span class="token punctuation">,</span> block<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h2 id="结尾"><a href="#结尾" class="headerlink" title="结尾"></a>结尾</h2><p>以上就是稍加深入地对<code>bridge</code>的工作原理进行了介绍，我希望能对那些想开发更加复杂的模块和想为核心框架贡献代码的人能有所帮助。</p>
+<p>本文翻译自 <a href="http://tadeuzagallo.com/blog/react-native-bridge/" target="_blank" rel="noopener">http://tadeuzagallo.com/blog/react-native-bridge/</a></p>
+</div></article></div><div class="post-nav"><div class="prev-wrap col-md-6 col-xs-6"><i class="fa fa-angle-double-left"></i><a href="/blog/2015/11/04/东大官网开发记录/" class="prev-post">东大官网开发记录</a></div><div class="next-wrap col-md-6 col-xs-6"><a href="/blog/2015/10/09/一点感悟/" class="next-post">一点感悟</a><i class="fa fa-angle-double-right"></i></div></div></main></div><footer><div class="copyright"><p>Crafted with <i class="fa fa-heart"></i> by&nbsp;ERIC HUANG&nbsp;|&nbsp;<a href="http://hexo.io/" target="_blank">Hexo</a> Theme <a href="https://github.com/yiliashaw/hexo-theme-prince" target="_blank">Prince</a></p></div></footer><script src="/js/jquery-3.2.1.min.js"></script><script src="/js/bootstrap.min.js"></script><link href="/fancybox/jquery.fancybox.min.css" rel="stylesheet"><script src="/fancybox/jquery.fancybox.min.js"></script><script src="/js/script.js"></script><script src="/js/gist-embed.min.js"></script></body></html>

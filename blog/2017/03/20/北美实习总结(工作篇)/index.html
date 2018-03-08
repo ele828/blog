@@ -1,0 +1,55 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Eric's Blog</title><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/img/favicon.png"><link href="/css/font-awesome.min.css" rel="stylesheet"><link href="/css/bootstrap.min.css" rel="stylesheet"><link href="/css/reset.css" rel="stylesheet"><link href="/css/main.css" rel="stylesheet"><script>(function(b,o,i,l,e,r){b.GoogleAnalyticsObject=l;b[l]||(b[l]=function(){(b[l].q=b[l].q||[]).push(arguments)});b[l].l=+new Date;e=o.createElement(i);r=o.getElementsByTagName(i)[0];e.src='//www.google-analytics.com/analytics.js';r.parentNode.insertBefore(e,r)}(window,document,'script','ga'));ga('create',"UA-79167899-1",'auto');ga('send','pageview');</script><link rel="stylesheet" href="/css/prism.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head><body><div class="wrap"><nav class="page-navigation"><div class="nav-container"><div class="page-header-logo"><h1 class="prince-log"><a href="/" class="home-link">ERIC HUANG</a></h1></div><button type="button" data-toggle="collapse" data-target=".main-nav-items" class="navbar-toggle"><span class="sr-only">Toggle navigation</span><span class="icon-bar"></span><span class="icon-bar"></span><span class="icon-bar"></span></button><ul class="collapse navbar-collapse main-nav-items"><li class="menu-item"><a href="/" target="_self">ARCHIVE</a></li><li class="menu-item"><a href="/gallery/" target="_self">GALLERY</a></li><li class="menu-item"><a href="/about/" target="_self">ABOUT</a></li></ul></div></nav><main class="prince-container"><div class="header"><div><h1 class="post-title">北美实习总结(工作篇)</h1><div class="post-info">Mar 20th 2017</div></div></div><div class="post"><article class="post-block"><div class="post-entry"><p>刚刚结束实习回国，这两天终于把时差给倒过来了，抓紧趁热把总结写一下。</p>
+<p>我是去年九月份去的美国，在此之前大半年都忙碌于各种简历投递、面试及签证的事情上。在一切安排妥当之后，终于在去年9月初带着对未知的恐惧和向往的心情搭上了赴美的航班。</p>
+<p>我实习公司是一家叫 BitTitan 的西雅图创业公司。其实叫创业公司也不太准确，因为公司已经创办了将近十年，公司的业务是面向企业的软件，成立之初的主要业务是帮助微软 Office 365 进行数据迁移，公司每年都保持着一定的营收增长，处于稳步发展的阶段。公司不大，在职员工大概有 200-250 人左右，研发团队算上新加坡Office 大概有 50-60 人，而我所在的团队属于 Development Team 里的 Front End Team，因而我的 Title 是 Software Design Engineer Intern 但做的事情仍大多是前端相关的，偶尔会写一些C#代码（没错，公司是清一色的微软技术栈，创始人、CTO以及很多同事都是前微软员工）。</p>
+<p>我的实习是六个月整，为什么是这个时间其实背后也有原因（签证豁免），暂时按下不表，之后如果有时间我会再写写关于如何寻找北美实习机会及签证等等相关经验。我的实习大致可以分为以下几个阶段：</p>
+<ul>
+<li>入职的第一个月熟悉内部工具及 Code Base，因此我的工作大都是修复一些 Bug 或开发小的需求。</li>
+<li>第2、3个月我独立开发了一款代码生成器： Ember Model Generator。</li>
+<li>第4个月开发 ESLint 插件，检查各种内部特定的规则，保障代码质量。</li>
+<li>第5、6个月参与公司业务开发。</li>
+</ul>
+<p>在入职之初，我被安排了一个实习经理，在这之后每两周需要跟这位经理一起碰面聊聊实习情况，同时团队也给我安排了一位 Mentor，负责帮助我解决技术方面的问题。此外，我还需要每周跟我们组的老大，即 Lead，进行 1 on 1 的 meet up，我的实习任务也是由这位 Lead 安排的。稍大一些的项目也都会根据实习生的个人特点及意愿进行安排，从这些方面，确实感受到企业对实习生的重视。</p>
+<h3 id="自动化"><a href="#自动化" class="headerlink" title="自动化"></a>自动化</h3><p>值得一提的是，公司对自动化程度及代码质量的要求很高，比如后端的 REST API 层均是通过代码生成器生成的，而各种本机的配置、数据库、服务器、代码编译等过程都只需要一行命令即可完成。前端项目有完善的 Unit Test、Integration Test 及 Acceptance Test，在 Merge 代码之后，部署机器会运行所有测试及 Linting Rules。在这样严格的测试下，公司的产品在长期迭代过程中有了较好的保障且运行良好。</p>
+<p>有趣的是，我也亲自参与了公司自动化流程的开发工作，也就是前文提到的 <code>Ember Model Generator</code>。公司前端使用的是 <code>Ember</code> 框架，而 <code>Ember</code> 有一个 <code>Model</code> 层，这一层在以往需要开发人员根据 Swagger 文档或后端 Entity 进行手动编写，然而这一部分的工作大都是机械化的，因此我们考虑使用代码生成器进行 <code>Model</code>  代码的生成。这个项目的难度适中，因此最终由我一个人来负责开发。我用了整整两个月的时间完成了一个能真正运行的生成器并使用正式的项目进行了完善的测试。这个生成器不仅负责代码的生成工作，它还可以对已有项目进行无缝升级。最后，我又花了一个礼拜附带开发了模型层关系图的可视化工具来帮助开发者理解 <code>Model</code> 之间的联系。整个项目的难点主要在于需要对已有的 <code>Ember Models</code> 进行研究，抽象出公共可用的生成模式，分析模型之间的关系，判断 <code>Field</code> 的类型，并需要对生成器本身进行良好的设计及测试。最终，这个生成器生成的代码与以往纯手工编写的模型匹配程度大致在<code>93%</code>左右，配合 <code>Migration</code> 升级工具，模型能达到百分之百的准确率。</p>
+<p>这个工具能大大提高开发者的工作效率，与此同时，统一了模型的管理，保证前后端模型的同步。</p>
+<h3 id="工程化"><a href="#工程化" class="headerlink" title="工程化"></a>工程化</h3><h4 id="统一工具链"><a href="#统一工具链" class="headerlink" title="统一工具链"></a>统一工具链</h4><p>我的 Lead 是一位美国人，有近10年的软件开发经验，在他的管理之下，整个前端的工程化程度还算比较高。在团队的协作开发环境下，如何较好的进行规范统一也是一门学问。在内部，我们有一款 <code>BTFE</code> 的CLI工具，这款工具统一了前端开发的整个流程。包含功能有：项目创建、依赖的安装与清理、配置管理、测试、Linting、文档生成、Proxy、开发服务器等等。这样的工具在工程化的开发下，能起到良好统一的功效，同时也是自动化的一部分内容。例如项目的创建，如果手动通过 <code>Ember</code> 或 <code>NPM</code> 也可达到同样的目的，但这样的做法会浪费很多时间，也会增加人工出错的几率。因为项目需要有特定的目录结构及配置，通过自动化的方式能大大提高效率并保证绝对统一。再比如依赖的安装及测试，因为大型的项目会有复杂的结构及依赖关系，因此在安装及测试过程中，需要确定依赖关系并逐一运行脚本，<code>BTFE</code>工具就很好地处理了项目的相互依赖问题并提供了并行的脚本运行策略。</p>
+<h4 id="确保代码质量"><a href="#确保代码质量" class="headerlink" title="确保代码质量"></a>确保代码质量</h4><p>代码质量在长期迭代的大型项目中尤为重要，我实习的团队对代码质量的要求也很高。</p>
+<h5 id="Linting检测"><a href="#Linting检测" class="headerlink" title="Linting检测"></a>Linting检测</h5><p>由于JavaScript的灵活性，团队引入了<code>ESLint</code>, <code>JSHint</code>及<code>JSCS</code>等代码质量检测工具，争取在代码编写阶段通过错误与警告来消除不合格的代码，如有遗漏，在后续的持续集成环境中也会直接被打回，从而要求开发者手动修复。值得一提的是，有一些 Linting 工具还可以帮助检测常见的 JavaScript 错误，提高代码的健壮性。</p>
+<h5 id="Code-Review"><a href="#Code-Review" class="headerlink" title="Code Review"></a>Code Review</h5><p>单纯通过工具进行检测只能减少一些代码风格的不一致，而 <code>Code Review</code> 过程则提高了代码本身的正确性。通过与 Reviewer 的沟通，可以不断改进并修复一些潜在的问题。这个过程通常比较严格，我的 Mentor 对代码要求非常高，小到变量的命名，注释的编写，CSS的建议，大到整体的结构，代码实现，接口设计与组件的使用等等。通常这个过程，我都会被指出不少问题。通过这样的审核方式，我也不断提高了代码质量，并从 Reviewer 那里学到了很多知识。</p>
+<p><code>Code Review</code> 不仅仅能减少 Bug, 提高代码质量，同时也可以从别人的实现上学习到不少知识，促进团队成员的共同进步。</p>
+<h5 id="测试"><a href="#测试" class="headerlink" title="测试"></a>测试</h5><p>通过编写测试用例，我们能在迭代过程中保证代码应有的功能及效果。在团队协作开发环境下，如果没有测试用例的保障，很容易因为一些改动而破坏其他正常的功能。因此有了测试的保障，开发人员能减少心智负担。但对于测试用例的数量则需要自行斟酌，往往我们没有太多时间来编写完全覆盖的测试用例，但我个人认为至少需要保证主要功能的正确性。</p>
+<p>对于测试这一块，我觉得 <code>Ember</code> 做的还不够好，尤其是在对 UI进行测试时，通常需要通过 <code>Phantom.js</code> 或 <code>Chrome</code> 进行真实渲染和交互。这样的方式拖慢了运行测试所需的时间，一般情况下在我工作的电脑上 一千个左右的测试用例需要运行1-2分钟甚至更长时间。</p>
+<p>这时候 <code>Virtual DOM</code> 的优势就显现出来了，如果通过 <code>Virtual DOM</code> 在内存中实现虚拟渲染及交互，就能极大提高测试运行效率，也会提高开发者编写测试的热情。似乎 <code>enzyme</code> 可以做到这一点？</p>
+<h5 id="文档"><a href="#文档" class="headerlink" title="文档"></a>文档</h5><p>团队的要求是每一个函数及属性均需要编写注释，有了这些注释，API文档自然就水到渠成了。通过内部的工具配合 <code>YUIdoc</code> ，轻松实现了所有项目的API文档。我实习期间的其中一个任务就是改进了内部文档工具并修复注释生成过程中的问题，提高了文档的可用性与易用性。</p>
+<p>而我个人觉得除了API文档，还需要有组件库的文档，包括组件的用法及其渲染效果。样式库的文档，指明公共样式类的用处及用法。如果是一些工具类项目，最好能提供类似于 <code>Guide</code> 这样的文档。在团队中，还可以建立 Wiki 对一些常见知识进行记录和分享，这几个部分我认为团队还有提升的空间。</p>
+<h4 id="良好的架构"><a href="#良好的架构" class="headerlink" title="良好的架构"></a>良好的架构</h4><p>BitTitan 前端的代码量大概在十万这个数量级，有大大小小的若干个 <code>Web平台</code>，而这样数量级的代码固然需要一个能够良好扩展伸缩的架构。有人问我，“前端有架构吗？架构不是后端才有的吗？”，我的回答是前端当然有架构，软件可以没有架构，但代码量和复杂度上去了，在优化和重构过程中，通过不断地改进和抽象也就形成了架构。</p>
+<p>我个人认为 BitTitan 前端的代码架构还是比较出色的。在仓库中，大概有十个左右的独立项目，而我在实习过程中，也曾帮助 Lead 进行过一次代码抽象。由于我们使用 <code>Ember</code> ，其本身就有良好的结构划分，<code>Model</code>, <code>Controller</code>, <code>Adapter</code>, <code>Templates</code>, <code>Addon</code>, <code>Mixins</code>等等都是已经存在的。而我们要做的是通过<code>抽象</code>实现代码复用。</p>
+<ul>
+<li>公共库，例如 Model、Helper、Mixin、Addon、Utils 等；</li>
+<li>组件库，抽取公共组件形成组件库；</li>
+<li>样式库，通过自建CSS类库实现跨项目代码复用;</li>
+<li>应用自身结构的设计，组件划分及设计;</li>
+<li>应用状态的管理，接口的设计等等；</li>
+</ul>
+<p>而每一部分中又存在有自身良好的结构，这样的架构使得代码复用程度很高，减少了重复机械的劳动，提高开发者的工作效率。同时这样的架构也能更好地进行产品迭代和重构。对于架构这一方面，由于我自身的能力有限，也没能很好地总结，但确实此行让我开了眼界。</p>
+<h3 id="组件化"><a href="#组件化" class="headerlink" title="组件化"></a>组件化</h3><p>谈了这么多，我认为前端最重要的还是落实到实际的开发过程中，而我们接触最多的抽象也就是<code>组件化</code>了。通过组件化可以实现 <code>UI复用</code>，整个前端开发流程也变成了搭积木式的，可以互相协作的模式。那么如何进行组件抽象则成了重中之重，一个好的组件抽象可以极大程度上提高开发效率。</p>
+<p>由于我的实习任务没有涉及太多的业务实现，那么我就来谈谈我所看到的一些良好的抽象。</p>
+<h4 id="逻辑抽象-表格"><a href="#逻辑抽象-表格" class="headerlink" title="逻辑抽象 - 表格"></a>逻辑抽象 - 表格</h4><p>表格在企业级Web应用中占有极高地位，在应用中也随处可见，一个好的表格组件则可以贯穿整个应用。表格至少需要能自定义 Header, Row 及每一个 Cell的样式和功能。但这远远还不够，我认为还可以包含一些常用的功能：</p>
+<ul>
+<li>数据分页，通过滚动自动加载数据；</li>
+<li>Filter, Sorting, Search等功能；</li>
+<li>表格的刷新、行的删除等；</li>
+<li>大表格性能优化；</li>
+<li>允许更多的自定义功能。</li>
+</ul>
+<p>这样的组件其实是所谓的 <code>Composition组件</code>，组件本身不提供样式，只负责逻辑的抽象与实现。通过控制子组件来组合出各式各样的组件样式，而数据需要符合Composition组件的接口要求。</p>
+<h4 id="效果抽象-模态框"><a href="#效果抽象-模态框" class="headerlink" title="效果抽象 - 模态框"></a>效果抽象 - 模态框</h4><p>模态和弹出框也是一种常用的UI模式，模态框组件本身不提供组件样式，转而负责实现遮罩，弹出等效果，属于效果层面的复用，当然通过继承的方式，模态框也能负责一部分例如关闭或拖动这样的逻辑实现。而模态框具体的内容和样式则需要由其子组件来决定。</p>
+<h4 id="继承抽象-表单组件"><a href="#继承抽象-表单组件" class="headerlink" title="继承抽象 - 表单组件"></a>继承抽象 - 表单组件</h4><p>表单也是最常见的一种交互形式，那么表单的抽象自然也十分重要。通常表单需要独立定制一些样式，例如输入框，单选与多选框，下拉菜单，按钮等，这些组件需要预留好交互的接口。而表单组件自身作为一种抽象可以包含对每一个 <code>Field</code> 的数据提交、验证、重置等逻辑的实现。通过平时工作我发现，公司的各种表单组件层级结构较为复杂，通常包含了至少两级抽象。例如多选框与下拉菜单可能同时继承自MultiSelect组件，MultiSelect组件则负责多选数据的接口定义与数据绑定，这样通过继承的方式实现了代码复用。</p>
+<p>通过对组件化的灵活使用，我们可以最大限度提高代码复用率和开发效率。因此，在实际开发过程中需要不断思考总结，提炼可以复用的组件，而不能一味地只关注实现。</p>
+<h3 id="国际化"><a href="#国际化" class="headerlink" title="国际化"></a>国际化</h3><p>说起国际化，我在出国实习之前确实也没有太多机会接触到，开发的软件也都只面向中文用户。但 BitTitan 的客户广泛分布在世界各地，因而国际化也是产品必须考虑的要素，那么我来说说他们的国际化是怎么做的。</p>
+<p>国际化有一部分需要在后端进行管理，而前端当然也需要处理这部分逻辑。首先，开发者会在英文的配置文件下编写所需的文本，所有在应用中展示的文本都需要通过调用 <code>i18n</code> 模块进行获取。当开发者把代码 Merge 到仓库之后，后台将会定期运行特定的脚本将英文配置文件传送至第三方翻译服务，之后再<code>Merge</code>至仓库下。而应用则在编译过程中将各种语言配置直接写进代码中并生成不同的<code>Bundle</code>文件。当用户访问应用时，后端将会选择性地调用对应的 <code>Bundle</code> 予以展示，从而实现国际化的功能。</p>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>这一次海外的实习经历让我收获了很多专业相关的知识，文章只做了一个大体的总结，还有很多方面没能涉及到。团队的同事水平都比较高，比如我的 Mentor 非常擅长 CSS，他着手构建了 UIKit CSS Library；而我的 Lead 则拥有良好的计科素养，帮助前端团队进行技术选型，建设的良好的架构，开发各类内部工具，并在工作中给予大家帮助；另一位法国的同事有后端的背景，在 HTTP 及业务逻辑方面非常拿手。而我作为实习生也很好地融入这个团队，与大家一同进步，收获颇丰。</p>
+<p>作为即将正式踏入工作岗位的新人，我认为无论在任何岗位之上，都需要不断思考、学习、交流和总结才能提高水平。作为一名合格的前端工程师，永远都需要有一个工程师该有的态度和视野，不要把自己局限在某一个领域，比如我的实习工作就不完全是前端方面的，可能包括工具的构建、后端的实现、利用编译原理开发自动化工具等等。而随着领域的不断发展，可能将来还会涉及 <code>Node.js</code> 、客户端开发。</p>
+<p>只有扩大了你的视野，才能有更高的创造力，从而实现自我价值。</p>
+</div></article></div><div class="post-nav"><div class="prev-wrap col-md-6 col-xs-6"><i class="fa fa-angle-double-left"></i><a href="/blog/2017/03/21/Facebook面试小记/" class="prev-post">Facebook面试小记</a></div><div class="next-wrap col-md-6 col-xs-6"><a href="/blog/2016/09/06/JSConf 2016参会所见所想/" class="next-post">JSConf 2016参会所见所想</a><i class="fa fa-angle-double-right"></i></div></div></main></div><footer><div class="copyright"><p>Crafted with <i class="fa fa-heart"></i> by&nbsp;ERIC HUANG&nbsp;|&nbsp;<a href="http://hexo.io/" target="_blank">Hexo</a> Theme <a href="https://github.com/yiliashaw/hexo-theme-prince" target="_blank">Prince</a></p></div></footer><script src="/js/jquery-3.2.1.min.js"></script><script src="/js/bootstrap.min.js"></script><link href="/fancybox/jquery.fancybox.min.css" rel="stylesheet"><script src="/fancybox/jquery.fancybox.min.js"></script><script src="/js/script.js"></script><script src="/js/gist-embed.min.js"></script></body></html>
