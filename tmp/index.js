@@ -102,7 +102,7 @@ let time = 0;
 toDataURL('https://images.unsplash.com/photo-1539580709660-0505d36fa6e7?ixlib=rb-0.3.5&ixid=eyJhcHBfaWQiOjEyMDd9&s=df3e6c039eb1e5e32fef492bf6e3376e&auto=format&fit=crop&w=2801&q=80', function(dataUrl) {
   time = +new Date()
   let data = Array.from({ length: 1 }).fill(dataUrl).join('')
-  window.webkit.messageHandlers.postMessage.postMessage(data);
+  // window.webkit.messageHandlers.postMessage.postMessage(data);
 })
 
 function postMessageCallbck() {
