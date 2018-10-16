@@ -89,8 +89,9 @@ function toDataURL(url, callback) {
 // prompt
 toDataURL('https://images.unsplash.com/photo-1539580709660-0505d36fa6e7?ixlib=rb-0.3.5&ixid=eyJhcHBfaWQiOjEyMDd9&s=df3e6c039eb1e5e32fef492bf6e3376e&auto=format&fit=crop&w=2801&q=80', function(dataUrl) {
   const time = +new Date()
-  const data = Array.from({ length: 1 }).fill(dataUrl).join('')
+  let data = Array.from({ length: 1 }).fill(dataUrl).join('')
   console.log(data.length)
+  data = '123'
   const ret = window.prompt(data)
   const dur = (+new Date) - time
   window.prompt('time used:' + dur)
@@ -100,7 +101,7 @@ let time = 0;
 // message handler
 toDataURL('https://images.unsplash.com/photo-1539580709660-0505d36fa6e7?ixlib=rb-0.3.5&ixid=eyJhcHBfaWQiOjEyMDd9&s=df3e6c039eb1e5e32fef492bf6e3376e&auto=format&fit=crop&w=2801&q=80', function(dataUrl) {
   time = +new Date()
-  const data = Array.from({ length: 1 }).fill(dataUrl).join('')
+  let data = Array.from({ length: 1 }).fill(dataUrl).join('')
   window.webkit.messageHandlers.postMessage.postMessage(data);
 })
 
