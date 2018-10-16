@@ -91,7 +91,7 @@ toDataURL('https://images.unsplash.com/photo-1539580709660-0505d36fa6e7?ixlib=rb
   const time = +new Date()
   let data = Array.from({ length: 1 }).fill(dataUrl).join('')
   console.log(data.length)
-  data = '123'
+  // data = '123'
   const ret = window.prompt(data)
   const dur = (+new Date) - time
   window.prompt('time used:' + dur)
