@@ -1,0 +1,151 @@
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>JS Bin</title>
+</head>
+<body>
+  <canvas width="300" height="300" style="width: 300px; height: 300px;"></canvas>
+  <script>
+  
+var canvas = document.querySelector('canvas')
+var ctx = canvas.getContext('2d')
+
+var $ = {};
+
+$.Particle = function (opt) {
+  this.radius = 7;
+  this.x = opt.x;
+  this.y = opt.y;
+  this.angle = opt.angle;
+  this.speed = opt.speed;
+  this.accel = opt.accel;
+  this.decay = 0.01;
+  this.life = 1;
+};
+
+$.Particle.prototype.step = function (i) {
+  this.speed += this.accel;
+  this.x += Math.cos(this.angle) * this.speed;
+  this.y += Math.sin(this.angle) * this.speed;
+  this.angle += $.PI / 64;
+  this.accel *= 1.01;
+  this.life -= this.decay;
+
+  if (this.life <= 0) {
+    $.particles.splice(i, 1);
+  }
+};
+
+$.Particle.prototype.draw = function (i) {
+  // $.ctx.fillStyle = $.ctx.strokeStyle = 'hsla(' + ($.tick + (this.life * 120)) + ', 100%, 60%, ' + this.life + ')';
+  // $.ctx.fillStyle = $.ctx.strokeStyle = `rgba(${parseInt($.tick * 3 % 255)},${parseInt($.tick * 4 % 255)},${parseInt($.tick * 8 % 255)},${this.life})`;
+  let rgba = hslToRgb(($.tick + (this.life * 120))/360, 1, 0.6, this.life)
+  $.ctx.fillStyle = $.ctx.strokeStyle = `rgba(${rgba})`;
+  // console.log(`rgba(${rgba})`);
+  
+  $.ctx.beginPath();
+  if ($.particles[i - 1]) {
+    $.ctx.moveTo(this.x, this.y);
+    $.ctx.lineTo($.particles[i - 1].x, $.particles[i - 1].y);
+    // $.ctx.draw();
+  }
+  $.ctx.stroke();
+
+  $.ctx.beginPath();
+  $.ctx.arc(this.x, this.y, Math.max(0.001, this.life * this.radius), 0, $.TWO_PI);
+  $.ctx.fill();
+
+  // var size = Math.random() * 1.25;
+  // $.ctx.fillRect(~~(this.x + ((Math.random() - 0.5) * 35) * this.life), ~~(this.y + ((Math.random() - 0.5) * 35) * this.life), size, size);
+  // $.ctx.draw(); 
+}
+
+$.step = function () {
+  $.particles.push(new $.Particle({
+    x: $.width / 2 + Math.cos($.tick / 20) * $.min / 2,
+    y: $.height / 2 + Math.sin($.tick / 20) * $.min / 2,
+    angle: $.globalRotation + $.globalAngle,
+    speed: 0,
+    accel: 0.01
+  }));
+
+  $.particles.forEach(function (elem, index) {
+    elem.step(index);
+  });
+
+  $.globalRotation += $.PI / 6;
+  $.globalAngle += $.PI / 6;
+};
+
+$.draw = function () {
+  $.ctx.clearRect(0, 0, $.width, $.height);
+
+  $.particles.forEach(function (elem, index) {
+    elem.draw(index);
+  });
+};
+
+$.init = function (ctx) {
+  // $.canvas = document.createElement('canvas');
+  $.ctx = ctx
+  $.width = 300;
+  $.height = 300;
+  // $.canvas.width = $.width * window.devicePixelRatio;
+  // $.canvas.height = $.height * window.devicePixelRatio;
+  // $.canvas.style.width = $.width + 'px';
+  // $.canvas.style.height = $.height + 'px';
+  $.ctx.scale(1, 1);
+  $.min = $.width * 0.5;
+  $.particles = [];
+  $.globalAngle = 0;
+  $.globalRotation = 0;
+  $.tick = 0;
+  $.PI = Math.PI;
+  $.TWO_PI = $.PI * 2;
+  $.ctx.globalCompositeOperation = 'lighter';
+  // document.body.appendChild($.canvas);
+  $.loop();
+};
+
+$.loop = function () {
+  
+  $.step();
+  $.draw();
+  $.tick++;
+};
+
+
+function hslToRgb(h, s, l,a) {
+  var r, g, b;
+
+  if (s == 0) {
+    r = g = b = l; // achromatic
+  } else {
+    var hue2rgb = function hue2rgb(p, q, t) {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1 / 6) return p + (q - p) * 6 * t;
+      if (t < 1 / 2) return q;
+      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+      return p;
+    }
+
+    var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    var p = 2 * l - q;
+    r = hue2rgb(p, q, h + 1 / 3);
+    g = hue2rgb(p, q, h);
+    b = hue2rgb(p, q, h - 1 / 3);
+  }
+
+  return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255),a];
+}
+
+$.init(ctx);
+
+setInterval(function () { $.loop() }, 1000/60)
+  
+  </script>
+</body>
+</html>
+
