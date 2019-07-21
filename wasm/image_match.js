@@ -4,7 +4,6 @@ const canvas3 = document.createElement('canvas')
 
 const img = document.createElement('img')
 const video = document.createElement('video')
-video.autoplay = "autoplay"
 video.loop = true
 
 const videoContainerEl = document.querySelector('#video_place')
@@ -18,6 +17,7 @@ const p1 = new Promise((resolve) => {
   }
 })
 
+let videoResolve
 const p2 = new Promise((resolve) => {
   // video.onload = function() {
   //   console.log('video loaded')
@@ -25,10 +25,12 @@ const p2 = new Promise((resolve) => {
   //   resolve()
   // }
 
-  video.onloadeddata = function() {
-    console.log('video loaded')
-    resolve()
-  }
+  videoResolve = resolve
+
+  // video.onloadeddata = function() {
+  //   console.log('video loaded')
+  //   resolve()
+  // }
 })
 
 img.src = './pinball.png'
