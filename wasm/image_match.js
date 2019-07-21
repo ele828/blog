@@ -5,6 +5,7 @@ const canvas3 = document.createElement('canvas')
 const img = document.createElement('img')
 const video = document.createElement('video')
 video.autoplay = "autoplay"
+video.loop = true
 
 const videoContainerEl = document.querySelector('#video_place')
 videoContainerEl.appendChild(video)
