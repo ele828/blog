@@ -11,8 +11,11 @@
 
     function play() {
       console.log('play')
-      video.play()
       videoResolve()
+
+      setTimeout(() => {
+        video.play()
+      }, 1000)
     }
 </script>
 <button onclick="play()">Play</button>
