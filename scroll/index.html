@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>JS Bin</title>
+</head>
+<body style="overflow: hidden">
+  
+  <div id="scrollview" style="position: absolute; top: 300px; width: 200px; height: 300px; background: red; overflow: scroll;">
+    <div id="inner" style="width: 100%; height: 20000px; background: blue;">
+       <div style="width: 100%; height: 300px; background: red;">
+         <img src="https://images.unsplash.com/photo-1570485917227-d80033656d59?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=700&q=80" style="width: 100%; height: 100%"alt="">
+       </div>
+       <div style="width: 100%; height: 300px; background: yellow;">
+         <img src="https://images.unsplash.com/photo-1570481236682-d609924adda8?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=634&q=80" style="width: 100%; height: 100%"alt="">
+       </div>
+      <div style="width: 100%; height: 300px; background: green;">
+         <img src="https://images.unsplash.com/photo-1570470752028-7b2cd13f44a9?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=634&q=80" style="width: 100%; height: 100%"alt="">
+      </div>
+    </div>
+  </div>
+
+
+  <div id="box" style="position: absolute; top: 0; left: 0; width: 200px; height: 200px; overflow-y: scroll; background: blue;"></div>
+  
+</body>
+<script>
+const sv = document.getElementById('scrollview')
+const box = document.getElementById('box')
+const inner = document.getElementById('inner')
+
+var html = Array.from({length: 1000}).map(() => {
+  return `
+       <div style="width: 100%; height: 300px; background: red;">
+         <img src="https://images.unsplash.com/photo-1570485917227-d80033656d59?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=700&q=80" style="width: 100%; height: 100%"alt="">
+       </div>
+       <div style="width: 100%; height: 300px; background: yellow;">
+         <img src="https://images.unsplash.com/photo-1570481236682-d609924adda8?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=634&q=80" style="width: 100%; height: 100%"alt="">
+       </div>
+      <div style="width: 100%; height: 300px; background: green;">
+         <img src="https://images.unsplash.com/photo-1570470752028-7b2cd13f44a9?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=634&q=80" style="width: 100%; height: 100%"alt="">
+      </div>
+  `
+}).join('\n')
+
+inner.innerHTML = html
+
+box.innerHTML = html
+
+let y = 0
+
+function move() {
+  y += 3
+  sv.scrollTop = ++y
+  window.requestAnimationFrame(move)
+}
+
+sv.addEventListener('touchstart', (evt) => {
+  evt.preventDefault()
+  y = evt.touches[0].clientY
+})
+
+sv.addEventListener('touchmove', (evt) => {
+   var movedY = evt.touches[0].clientY
+    console.log('@@@', movedY, y)
+   var offsetY = movedY - y
+   
+   y = movedY
+//   console.log('offsetY:', offsetY)
+ 
+   sv.scrollTop = sv.scrollTop - offsetY
+})
+
+box.addEventListener('touchstart', (evt) => {
+  evt.preventDefault()
+})
+
+box.addEventListener('touchmove', (evt) => {
+  const x = evt.touches[0].clientX
+  const y = evt.touches[0].clientY
+  box.style.transform = `translate(${x}px, ${y}px)`
+})
+
+</script>
+</html>
