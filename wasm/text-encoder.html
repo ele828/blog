@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+
+<script>
+    var utf8decoder = new TextDecoder(); // default 'utf-8' or 'utf8'
+
+    var u8arr = new Uint8Array(Array.from({length: 352 * 288 * 4}).fill(0).map((_, i) => i % 128));
+
+    var b64 = window.btoa(utf8decoder.decode(u8arr));
+    var s = Date.now()
+
+    var enc = new TextEncoder()
+    var ret = enc.encode(b64)
+    var e = Date.now()
+
+    alert(e-s)
+</script>
+</body>
+</html>
