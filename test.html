@@ -1,0 +1,57 @@
+<html>
+<head>
+  <title>test background audio</title>
+</head>
+<body>
+<h1>video</h1>
+<video width=500 height=300 controls playsinline src="http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"></video>
+
+<h1>audio</h1>
+<figure>
+    <audio
+        controls
+        src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3">
+            Your browser does not support the
+            <code>audio</code> element.
+    </audio>
+</figure>
+
+<h1>video via api</h1>
+<button id="videoBtn">play video</button>
+
+<h1>audio via api</h1>
+<button id="audioBtn">play audio</button>
+
+<script>
+
+function playVideo() {
+  var video = document.createElement('video')
+  video.src = 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
+  video.playsinline = true
+  video.constrols = true
+  
+  video.play()
+}
+
+function playAudio() {
+  var audio = new Audio('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3')
+  audio.play()
+}
+
+var videoBtn = document.querySelector('#videoBtn')
+var audioBtn = document.querySelector('#audioBtn')
+
+videoBtn.addEventListener('click', () => {
+  console.log('video button clicked')
+  playVideo()
+})
+
+audioBtn.addEventListener('click', () => {
+  console.log('audio button clicked')
+  playAudio()
+})
+
+</script>
+
+</body>
+</html>
