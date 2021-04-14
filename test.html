@@ -50,6 +50,10 @@ audioBtn.addEventListener('click', () => {
   console.log('audio button clicked')
   playAudio()
 })
+  
+WeixinJSBridge.on('onPageStateChange', (res) => {
+  console.log('res is active', res.active)
+})
 
 </script>
 
